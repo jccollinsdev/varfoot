@@ -2,42 +2,44 @@
 
 import Image from "next/image";
 import {
-  BookOpenText,
-  BowlFood,
-  ChartLineUp,
-  ChatsCircle,
-  ClipboardText,
   House,
+  ClipboardText,
   Target,
+  BowlFood,
+  ChatsCircle,
   Timer,
-  UserCircle,
+  ChartLineUp,
+  ArrowRight,
+  X,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { Session } from "@supabase/supabase-js";
+
 import {
-  addFoodEntry,
   assessmentBenchmarks,
-  assessmentLabels,
   coachPromptLibrary,
   clearState,
   createBlankState,
   createDemoState,
   drillLibrary,
-  findMetricLabel,
   getAssessmentScores,
   getNutritionTotals,
-  getScreenHint,
+  addFoodEntry,
+  foodCatalog,
   loadState,
   saveState,
-  screenMap,
-  foodCatalog,
   type AppState,
   type FoodEntry,
   type MetricKey,
-  type TabKey,
 } from "@/lib/varfoot";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import {
@@ -47,2217 +49,1043 @@ import {
 } from "@/lib/varfoot-sync";
 import { cn } from "@/lib/utils";
 
-const tabs: Array<{
-  key: TabKey;
-  label: string;
-  short: string;
-  icon: typeof House;
-}> = [
-  { key: "today", label: "Today", short: "Home", icon: House },
-  { key: "assess", label: "Assess", short: "Assess", icon: ClipboardText },
-  { key: "plan", label: "Plan", short: "Plan", icon: ChartLineUp },
-  { key: "train", label: "Train", short: "Train", icon: Target },
-  { key: "fuel", label: "Fuel", short: "Fuel", icon: BowlFood },
-  { key: "coach", label: "Coach", short: "Coach", icon: ChatsCircle },
-  { key: "library", label: "Library", short: "Library", icon: BookOpenText },
-  { key: "profile", label: "Profile", short: "Profile", icon: UserCircle },
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+type NavTab = "home" | "stats" | "plan" | "fuel" | "coach";
+type AuthMode = "sign-in" | "sign-up";
+type Tone = "neutral" | "green" | "gold" | "red" | "blue";
+type DashSection = "benchmark" | "assess" | "library";
+
+const NAV = [
+  { key: "home" as NavTab, label: "Home", Icon: House },
+  { key: "stats" as NavTab, label: "Stats", Icon: ClipboardText },
+  { key: "plan" as NavTab, label: "Plan", Icon: Target },
+  { key: "fuel" as NavTab, label: "Fuel", Icon: BowlFood },
+  { key: "coach" as NavTab, label: "Coach", Icon: ChatsCircle },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Design tokens
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TONE: Record<Tone, string> = {
+  neutral:
+    "border-[rgba(245,236,216,0.11)] bg-[rgba(38,39,30,0.96)] text-[color:var(--muted)]",
+  green:
+    "border-[rgba(132,181,109,0.36)] bg-[rgba(132,181,109,0.14)] text-[color:var(--green)]",
+  gold: "border-[rgba(210,160,74,0.4)] bg-[rgba(210,160,74,0.13)] text-[color:var(--gold)]",
+  red: "border-[rgba(215,121,109,0.34)] bg-[rgba(215,121,109,0.1)] text-[color:var(--red)]",
+  blue: "border-[rgba(134,178,199,0.32)] bg-[rgba(134,178,199,0.1)] text-[color:var(--blue)]",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared UI primitives
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("paper-card p-4", className)}>{children}</div>;
+}
+
+function SoftCard({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("paper-card-soft p-4", className)}>{children}</div>;
+}
+
+function Eyebrow({ children, tone = "dim" }: { children: ReactNode; tone?: "dim" | "green" | "gold" }) {
+  return (
+    <p className={cn(
+      "text-[10px] font-black uppercase tracking-[0.22em]",
+      tone === "green" && "text-[color:var(--green)]",
+      tone === "gold" && "text-[color:var(--gold)]",
+      tone === "dim" && "text-[color:var(--dim)]",
+    )}>
+      {children}
+    </p>
+  );
+}
+
+function Stat({ label, value, tone = "neutral", compact }: {
+  label: string; value: string; tone?: Tone; compact?: boolean;
+}) {
+  return (
+    <div className={cn("rounded-[14px] border px-3 shadow-[2px_2px_0_rgba(0,0,0,0.16)]", TONE[tone], compact ? "py-2" : "py-2.5")}>
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-75">{label}</p>
+      <p className={cn("mt-0.5 font-black tracking-[-0.03em]", compact ? "text-[13px]" : "text-[15px]")}>{value}</p>
+    </div>
+  );
+}
+
+function MetricBar({ label, score, value, unit, target }: {
+  label: string; score: number; value: number; unit: string; target: number;
+}) {
+  const pct = Math.max(3, Math.min(100, score));
+  const color = score >= 72 ? "var(--green)" : score >= 44 ? "var(--gold)" : "var(--red)";
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13px] font-bold text-[color:var(--foreground)]">{label}</span>
+        <span className="font-mono text-[12px]" style={{ color }}>
+          {typeof value === "number" && value < 10 ? value.toFixed(1) : Math.round(value)}
+          <span className="text-[10px] text-[color:var(--dim)] ml-0.5">{unit}</span>
+        </span>
+      </div>
+      <div className="relative h-[7px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]">
+        <div
+          className="absolute left-0 top-0 h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}cc, ${color})` }}
+        />
+        <span className="absolute top-[-3px] h-[13px] w-[1.5px] rounded-full bg-[rgba(245,236,216,0.35)]" style={{ left: "25%" }} />
+        <span className="absolute top-[-3px] h-[13px] w-[1.5px] rounded-full bg-[rgba(245,236,216,0.35)]" style={{ left: "55%" }} />
+      </div>
+      <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">
+        <span>Freshman</span>
+        <span>JV</span>
+        <span>Varsity ({target} {unit})</span>
+      </div>
+    </div>
+  );
+}
+
+function Gauge({ score }: { score: number }) {
+  const safe = Math.max(0, Math.min(100, score));
+  const label = safe >= 80 ? "Varsity ready" : safe >= 60 ? "Approaching" : safe >= 40 ? "Building base" : "Early stage";
+  const color = safe >= 72 ? "var(--green)" : safe >= 44 ? "var(--gold)" : "var(--red)";
+  return (
+    <div className="relative flex h-[164px] w-[164px] items-center justify-center">
+      <div className="gauge-glow absolute inset-2 rounded-full blur-lg" style={{ background: `conic-gradient(${color}55 0 ${safe}%, transparent ${safe}% 100%)` }} />
+      <div className="absolute inset-0 rounded-full bg-[rgba(245,236,216,0.05)]" />
+      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(${color} 0 ${safe}%, rgba(245,236,216,0.07) ${safe}% 100%)` }} />
+      <div className="absolute inset-[10px] rounded-full border border-[rgba(245,236,216,0.07)] bg-[rgba(10,11,8,0.95)]" />
+      <div className="relative z-10 text-center">
+        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[color:var(--muted)]">Readiness</p>
+        <p className="text-[42px] font-black leading-none tracking-[-0.08em]" style={{ color: safe >= 44 ? "var(--foreground)" : "var(--red)" }}>{safe}</p>
+        <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.18em]" style={{ color }}>{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth Screen
+// ─────────────────────────────────────────────────────────────────────────────
+
+const authSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(8, "At least 8 characters"),
+});
+type AuthFormData = z.infer<typeof authSchema>;
+
+function AuthScreen({ loading, error, onSubmit, onDemo }: {
+  loading: boolean; error: string | null;
+  onSubmit: (mode: AuthMode, email: string, pass: string) => Promise<void>;
+  onDemo: () => void;
+}) {
+  const [mode, setMode] = useState<AuthMode>("sign-in");
+  const form = useForm<AuthFormData>({
+    resolver: zodResolver(authSchema),
+    defaultValues: { email: "", password: "" },
+  });
+
+  return (
+    <div className="phone-shell" style={{ background: "var(--background)" }}>
+      <div className="phone-column" style={{ justifyContent: "center", alignItems: "center", padding: "24px 20px", paddingTop: "calc(24px + env(safe-area-inset-top, 0px))", paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}>
+        <div className="noise-layer" />
+        <div className="relative z-10 w-full">
+          {/* Logo */}
+          <div className="mb-8 flex flex-col items-center gap-3">
+            <div className="flex h-[68px] w-[68px] items-center justify-center rounded-[22px] border" style={{ borderColor: "rgba(132,181,109,0.28)", background: "rgba(32,33,25,0.96)", boxShadow: "0 0 0 1px rgba(0,0,0,0.3) inset, 0 0 40px rgba(132,181,109,0.1)" }}>
+              <Image src="/varfoot-mark.svg" alt="VarFoot" width={40} height={40} priority />
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[color:var(--green)]">VarFoot</p>
+              <h1 className="mt-1 text-[28px] font-black leading-tight tracking-[-0.06em] text-[color:var(--foreground)]">
+                {mode === "sign-in" ? "Welcome back." : "Start your journey."}
+              </h1>
+              <p className="mt-1.5 text-[13px] text-[color:var(--muted)]">
+                {mode === "sign-in" ? "Pick up where you left off." : "Track your gaps. Close the distance."}
+              </p>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div className="paper-shell rounded-[24px] p-5">
+            <form className="space-y-3" onSubmit={form.handleSubmit(async (v) => {
+              await onSubmit(mode, v.email.trim().toLowerCase(), v.password);
+            })}>
+              <label className="grid gap-1.5 text-[12px] font-black uppercase tracking-[0.14em] text-[color:var(--muted)]">
+                Email
+                <input className="paper-field h-12 px-4 text-[14px] font-semibold" placeholder="you@example.com" autoComplete="email" autoCapitalize="none" inputMode="email" {...form.register("email")} />
+                {form.formState.errors.email ? <span className="text-[11px] font-bold text-[color:var(--red)]">{form.formState.errors.email.message}</span> : null}
+              </label>
+              <label className="grid gap-1.5 text-[12px] font-black uppercase tracking-[0.14em] text-[color:var(--muted)]">
+                Password
+                <input type="password" className="paper-field h-12 px-4 text-[14px] font-semibold" placeholder="Minimum 8 characters" autoComplete={mode === "sign-in" ? "current-password" : "new-password"} {...form.register("password")} />
+                {form.formState.errors.password ? <span className="text-[11px] font-bold text-[color:var(--red)]">{form.formState.errors.password.message}</span> : null}
+              </label>
+              {error ? <div className="rounded-[12px] border border-[rgba(215,121,109,0.3)] bg-[rgba(215,121,109,0.1)] px-4 py-3 text-[13px] text-[color:var(--red)]">{error}</div> : null}
+              <button type="submit" disabled={loading} className="paper-button-primary mt-1 flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">
+                {loading ? "One moment…" : mode === "sign-in" ? "Sign in" : "Create account"}
+              </button>
+            </form>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <button type="button" onClick={() => setMode((m) => m === "sign-in" ? "sign-up" : "sign-in")} className="paper-chip rounded-full px-4 py-2 text-[11px] font-black">
+              {mode === "sign-in" ? "New? Create account" : "Already have an account?"}
+            </button>
+            <button type="button" onClick={onDemo} className="paper-chip rounded-full px-4 py-2 text-[11px] font-black">
+              Try demo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App Bar
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AppBar({ title, playerName, syncState, onAvatarTap }: {
+  title: string; playerName: string; syncState: string; onAvatarTap: () => void;
+}) {
+  const initials = playerName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "VA";
+  const syncDot = syncState === "synced" ? "var(--green)" : syncState === "saving" ? "var(--gold)" : syncState === "error" ? "var(--red)" : undefined;
+
+  return (
+    <div className="app-bar">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-[10px] border" style={{ borderColor: "rgba(245,236,216,0.11)", background: "rgba(32,33,25,0.96)" }}>
+          <Image src="/varfoot-mark.svg" alt="VarFoot" width={18} height={18} />
+        </div>
+        <span className="text-[17px] font-black tracking-[-0.03em] text-[color:var(--foreground)]">{title}</span>
+        {syncDot ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: syncDot }} /> : null}
+      </div>
+      <button type="button" onClick={onAvatarTap} className="flex h-9 w-9 items-center justify-center rounded-full border text-[13px] font-black transition" style={{ borderColor: "rgba(245,236,216,0.14)", background: "rgba(36,37,28,0.96)", color: "var(--muted)" }}>
+        {initials}
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bottom Nav
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BottomNav({ active, onSelect }: { active: NavTab; onSelect: (tab: NavTab) => void }) {
+  return (
+    <div className="bottom-nav">
+      <div className="nav-grid">
+        {NAV.map(({ key, label, Icon }) => {
+          const isActive = key === active;
+          return (
+            <button key={key} type="button" className="nav-item" onClick={() => onSelect(key)}>
+              <span className="nav-dot" style={{ background: isActive ? "var(--green)" : "transparent", opacity: isActive ? 1 : 0 }} />
+              <Icon size={22} weight={isActive ? "fill" : "regular"} style={{ color: isActive ? "var(--green)" : "var(--dim)", transition: "color 200ms" }} />
+              <span className="nav-label" style={{ color: isActive ? "var(--green)" : "var(--dim)" }}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile Sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ProfileSheet({ state, localMode, syncState, onSignOut, onLoadDemo, onReset, onClose }: {
+  state: AppState; localMode: boolean; syncState: string;
+  onSignOut: () => Promise<void>; onLoadDemo: () => void; onReset: () => void; onClose: () => void;
+}) {
+  const syncLabels: Record<string, string> = { local: "Local only", loading: "Loading…", saving: "Saving…", synced: "Synced", error: "Sync error", "signed-out": "Signed out" };
+  return (
+    <div className="absolute inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.55)" }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full rounded-t-[28px] border border-[rgba(245,236,216,0.11)]" style={{ background: "rgba(16,17,12,0.98)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)" }}>
+        <div className="flex justify-center pt-3 pb-1"><div className="h-1 w-9 rounded-full bg-[rgba(245,236,216,0.2)]" /></div>
+        <div className="px-5 pb-2 pt-3">
+          <div className="mb-5 flex items-center gap-4">
+            <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full border text-[22px] font-black text-[color:var(--foreground)]" style={{ borderColor: "rgba(245,236,216,0.14)", background: "rgba(32,33,25,0.96)" }}>
+              {state.assessment.name.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-[19px] font-black tracking-[-0.04em]">{state.assessment.name}</p>
+              <p className="text-[13px] text-[color:var(--muted)]">{state.assessment.school}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--dim)]">{state.assessment.position}</p>
+            </div>
+          </div>
+          <div className="mb-4 rounded-[14px] border border-[rgba(245,236,216,0.09)] bg-[rgba(30,31,23,0.96)] px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--dim)]">Sync</p>
+            <p className="mt-0.5 text-[13px] font-bold text-[color:var(--foreground)]">{localMode ? "Local mode" : (syncLabels[syncState] ?? syncState)}</p>
+          </div>
+          <div className="space-y-2">
+            <button type="button" onClick={onLoadDemo} className="paper-button-primary flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">Load demo athlete</button>
+            <button type="button" onClick={onReset} className="paper-button-secondary flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">Clear all data</button>
+            {!localMode ? (
+              <button type="button" onClick={() => void onSignOut()} className="flex h-12 w-full items-center justify-center rounded-[14px] border text-[14px] font-black" style={{ borderColor: "rgba(215,121,109,0.26)", background: "rgba(215,121,109,0.08)", color: "var(--red)" }}>Sign out</button>
+            ) : null}
+          </div>
+          <button type="button" onClick={onClose} className="mt-4 flex h-10 w-full items-center justify-center text-[12px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOME TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+function HomeTab({ state, scores, nutritionTotals, onGoToStats, onGoToPlan, onLoadDemo, onGeneratePlan, planLoading }: {
+  state: AppState; scores: ReturnType<typeof getAssessmentScores>; nutritionTotals: ReturnType<typeof getNutritionTotals>;
+  onGoToStats: () => void; onGoToPlan: () => void; onLoadDemo: () => void;
+  onGeneratePlan: () => Promise<void>; planLoading: boolean;
+}) {
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 5 ? "Up early" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = state.assessment.name.split(" ")[0] || "Athlete";
+  const topGaps = scores.gaps.slice(0, 2);
+  const selectedWeek = state.plan.weeks.find((w) => w.week === state.selectedWeek) ?? state.plan.weeks[0];
+  const nextSession = selectedWeek?.sessions.find((s) => s.status === "today") ?? selectedWeek?.sessions[0];
+  const calPct = Math.min(1, nutritionTotals.calories / state.nutrition.calorieTarget);
+  const calTone: Tone = calPct >= 0.85 ? "green" : calPct >= 0.6 ? "gold" : "red";
+
+  return (
+    <div className="tab-enter space-y-3 px-4 pb-4 pt-2">
+      {/* Greeting */}
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">
+          {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+        </p>
+        <h2 className="mt-0.5 text-[26px] font-black tracking-[-0.05em] text-[color:var(--foreground)]">
+          {greeting}, {firstName}.
+        </h2>
+      </div>
+
+      {/* Welcome banner */}
+      {!state.onboardingComplete ? (
+        <div className="rounded-[20px] border p-5" style={{ borderColor: "rgba(132,181,109,0.22)", background: "linear-gradient(145deg, rgba(132,181,109,0.1), rgba(20,21,15,0.98))" }}>
+          <Eyebrow tone="green">Welcome to VarFoot</Eyebrow>
+          <h3 className="mt-1.5 text-[22px] font-black tracking-[-0.05em]">Build the plan before tryouts.</h3>
+          <p className="mt-2 text-[13px] leading-5 text-[color:var(--muted)]">Start with your physical baseline. Compare against varsity targets. Follow the roadmap.</p>
+          <div className="mt-4 flex gap-2.5">
+            <button type="button" onClick={onGoToStats} className="paper-button-primary flex h-10 items-center gap-1.5 rounded-[12px] px-4 text-[13px]">
+              Start assessment <ArrowRight size={14} weight="bold" />
+            </button>
+            <button type="button" onClick={onLoadDemo} className="paper-button-secondary flex h-10 items-center rounded-[12px] px-4 text-[13px]">Demo</button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Readiness card */}
+      {state.onboardingComplete ? (
+        <Card>
+          <div className="flex items-center gap-4">
+            <Gauge score={Math.round(scores.overallScore)} />
+            <div className="flex-1 min-w-0 space-y-2">
+              <Stat label="Goal" value={state.assessment.seasonGoal.length > 24 ? state.assessment.seasonGoal.slice(0, 24) + "…" : state.assessment.seasonGoal} tone="neutral" compact />
+              <Stat label="Top gap" value={topGaps[0]?.label ?? "—"} tone="gold" compact />
+              <Stat label="Fuel" value={`${nutritionTotals.calories} / ${state.nutrition.calorieTarget} kcal`} tone={calTone} compact />
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
+      {/* Next session */}
+      {nextSession ? (
+        <button type="button" onClick={onGoToPlan} className="w-full text-left">
+          <SoftCard className="transition active:scale-[0.98]">
+            <Eyebrow>Next session</Eyebrow>
+            <div className="mt-2 flex items-start gap-3">
+              <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[14px]" style={{ background: "rgba(132,181,109,0.14)" }}>
+                <Timer size={22} weight="bold" style={{ color: "var(--green)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[16px] font-black tracking-[-0.04em] text-[color:var(--foreground)]">{nextSession.title}</p>
+                <p className="text-[13px] text-[color:var(--muted)]">{nextSession.drill}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{nextSession.day}</span>
+                  <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{nextSession.duration}</span>
+                  <span className="rounded-full px-2.5 py-1 text-[10px] font-black" style={{ background: "rgba(132,181,109,0.14)", color: "var(--green)", border: "1px solid rgba(132,181,109,0.3)" }}>{nextSession.focus}</span>
+                </div>
+              </div>
+            </div>
+          </SoftCard>
+        </button>
+      ) : null}
+
+      {/* Top gaps */}
+      {topGaps.length > 0 && state.onboardingComplete ? (
+        <div>
+          <Eyebrow>Top gaps to close</Eyebrow>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {topGaps.map((gap) => (
+              <SoftCard key={gap.metric} className="py-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">{gap.label}</p>
+                <p className="mt-1 text-[30px] font-black tracking-[-0.07em] leading-none text-[color:var(--foreground)]">
+                  {Math.round(gap.score)}<span className="text-[13px] text-[color:var(--dim)]">%</span>
+                </p>
+                <p className="mt-1 text-[11px] text-[color:var(--muted)]">{gap.higherIsBetter ? "Push higher ↑" : "Push lower ↓"}</p>
+              </SoftCard>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Week card */}
+      {selectedWeek && state.onboardingComplete ? (
+        <button type="button" onClick={onGoToPlan} className="w-full text-left">
+          <Card className="transition active:scale-[0.98]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Eyebrow tone="green">Week {selectedWeek.week} · {selectedWeek.label}</Eyebrow>
+                <p className="mt-1 text-[13px] leading-5 text-[color:var(--muted)]">{selectedWeek.readinessNote}</p>
+              </div>
+              <ArrowRight size={18} weight="bold" style={{ color: "var(--dim)", flexShrink: 0 }} />
+            </div>
+          </Card>
+        </button>
+      ) : null}
+
+      {state.onboardingComplete ? (
+        <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading} className="paper-button-secondary flex h-11 w-full items-center justify-center rounded-[14px] text-[13px]">
+          {planLoading ? "Generating plan…" : "Regenerate training plan"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+function StatsTab({ state, scores, onAssessmentChange, onGeneratePlan, onToggleDrill, planLoading }: {
+  state: AppState; scores: ReturnType<typeof getAssessmentScores>;
+  onAssessmentChange: (key: keyof AppState["assessment"], value: string) => void;
+  onGeneratePlan: () => Promise<void>; onToggleDrill: (name: string) => void; planLoading: boolean;
+}) {
+  const [section, setSection] = useState<DashSection>("benchmark");
+  const SECTIONS: Array<{ key: DashSection; label: string }> = [
+    { key: "benchmark", label: "Benchmark" },
+    { key: "assess", label: "Assessment" },
+    { key: "library", label: "Drill Library" },
+  ];
+
+  return (
+    <div className="tab-enter space-y-3 px-4 pb-4 pt-2">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
+        {SECTIONS.map((s) => (
+          <button key={s.key} type="button" onClick={() => setSection(s.key)} className={cn("flex-shrink-0 rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] transition", section === s.key ? "paper-chip-active" : "paper-chip")}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Benchmark */}
+      {section === "benchmark" ? (
+        <div className="space-y-3">
+          <Card>
+            <div className="flex items-center gap-5">
+              <Gauge score={Math.round(scores.overallScore)} />
+              <div className="flex-1 space-y-2">
+                <div><Eyebrow>Technical</Eyebrow><p className="text-[28px] font-black tracking-[-0.06em] leading-none">{Math.round(scores.technicalScore)}<span className="text-[13px] font-bold text-[color:var(--dim)]">/100</span></p></div>
+                <div><Eyebrow tone="gold">Physical</Eyebrow><p className="text-[28px] font-black tracking-[-0.06em] leading-none">{Math.round(scores.physicalScore)}<span className="text-[13px] font-bold text-[color:var(--dim)]">/100</span></p></div>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <Eyebrow tone="green">Technical</Eyebrow>
+            <div className="mt-3 space-y-5">
+              {(["passing", "shooting", "dribbling", "firstTouch", "speed"] as MetricKey[]).map((metric) => {
+                const ms = scores.metricScores.find((s) => s.metric === metric)!;
+                const bench = assessmentBenchmarks[metric];
+                return <MetricBar key={metric} label={bench.label} score={ms.score} value={ms.value} unit={bench.unit} target={bench.varsity} />;
+              })}
+            </div>
+          </Card>
+
+          <Card>
+            <Eyebrow tone="gold">Physical</Eyebrow>
+            <div className="mt-3 space-y-5">
+              {(["pushups", "plankSeconds", "wallSitSeconds"] as MetricKey[]).map((metric) => {
+                const ms = scores.metricScores.find((s) => s.metric === metric)!;
+                const bench = assessmentBenchmarks[metric];
+                return <MetricBar key={metric} label={bench.label} score={ms.score} value={ms.value} unit={bench.unit} target={bench.varsity} />;
+              })}
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {/* Assessment */}
+      {section === "assess" ? (
+        <div className="space-y-3">
+          <Card>
+            <Eyebrow tone="green">Profile</Eyebrow>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {([
+                { key: "name", label: "Name", span: false },
+                { key: "age", label: "Age", span: false },
+                { key: "school", label: "School", span: true },
+                { key: "position", label: "Position", span: false },
+                { key: "height", label: "Height", span: false },
+                { key: "weight", label: "Weight", span: false },
+                { key: "seasonGoal", label: "Season goal", span: true },
+              ] as const).map(({ key, label, span }) => (
+                <label key={key} className={cn("grid gap-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--muted)]", span && "col-span-2")}>
+                  {label}
+                  <input className="paper-field h-10 px-3 text-[13px] font-semibold" value={state.assessment[key]} onChange={(e) => onAssessmentChange(key, e.target.value)} />
+                </label>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <Eyebrow tone="gold">Physical tests</Eyebrow>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {(["pushups", "plankSeconds", "wallSitSeconds"] as const).map((metric) => {
+                const bench = assessmentBenchmarks[metric];
+                return (
+                  <label key={metric} className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--muted)]">
+                    {bench.label}
+                    <div className="flex items-center gap-1">
+                      <input type="number" inputMode="numeric" className="paper-field h-10 flex-1 px-3 text-[13px] font-semibold" value={state.assessment[metric]} onChange={(e) => onAssessmentChange(metric, e.target.value)} />
+                      <span className="flex-shrink-0 text-[10px] text-[color:var(--dim)]">{bench.unit}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card>
+            <Eyebrow tone="green">Technical tests</Eyebrow>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {(["passing", "shooting", "dribbling", "firstTouch", "speed"] as const).map((metric) => {
+                const bench = assessmentBenchmarks[metric];
+                return (
+                  <label key={metric} className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--muted)]">
+                    {bench.label}
+                    <div className="flex items-center gap-1">
+                      <input type="number" inputMode="numeric" className="paper-field h-10 flex-1 px-3 text-[13px] font-semibold" value={state.assessment[metric]} onChange={(e) => onAssessmentChange(metric, e.target.value)} />
+                      <span className="flex-shrink-0 text-[10px] text-[color:var(--dim)]">{bench.unit}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </Card>
+
+          <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading} className="paper-button-primary flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">
+            {planLoading ? "Building your roadmap…" : "Generate training plan"}
+          </button>
+        </div>
+      ) : null}
+
+      {/* Library */}
+      {section === "library" ? (
+        <div className="space-y-3">
+          {drillLibrary.map((drill) => {
+            const saved = state.library.savedDrills.includes(drill.name);
+            return (
+              <Card key={drill.name}>
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Eyebrow tone="green">{drill.focus}</Eyebrow>
+                    <h3 className="mt-1 text-[17px] font-black tracking-[-0.04em]">{drill.name}</h3>
+                    <p className="mt-1.5 text-[13px] leading-5 text-[color:var(--muted)]">{drill.instructions}</p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{drill.duration}</span>
+                      <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{drill.equipment}</span>
+                    </div>
+                    <p className="mt-2 text-[11px] font-bold" style={{ color: "var(--green)" }}>Target: {drill.target}</p>
+                  </div>
+                  <button type="button" onClick={() => onToggleDrill(drill.name)} className={cn("flex-shrink-0 rounded-[11px] border px-3 py-1.5 text-[11px] font-black transition", saved ? "border-[rgba(132,181,109,0.38)] bg-[rgba(132,181,109,0.16)] text-[color:var(--green)]" : "paper-chip")}>
+                    {saved ? "✓ Saved" : "Save"}
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAN TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PlanTab({ state, selectedWeek, onSelectWeek, onGeneratePlan, planLoading }: {
+  state: AppState; selectedWeek: AppState["plan"]["weeks"][number] | undefined;
+  onSelectWeek: (week: number) => void; onGeneratePlan: () => Promise<void>; planLoading: boolean;
+}) {
+  if (!state.plan.weeks.length) {
+    return (
+      <div className="tab-enter space-y-3 px-4 pb-4 pt-2">
+        <h2 className="text-[24px] font-black tracking-[-0.05em]">Training Plan</h2>
+        <Card>
+          <div className="py-5 text-center">
+            <ChartLineUp size={44} weight="light" style={{ margin: "0 auto", color: "var(--dim)" }} />
+            <p className="mt-3 text-[17px] font-black tracking-[-0.04em]">No plan yet</p>
+            <p className="mt-1.5 text-[13px] text-[color:var(--muted)]">Complete the assessment to generate your 6-week varsity roadmap.</p>
+            <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading} className="paper-button-primary mt-5 flex h-11 w-full items-center justify-center rounded-[13px] text-[14px]">
+              {planLoading ? "Generating…" : "Generate plan"}
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const statusColor: Record<string, string> = { done: "var(--green)", today: "var(--gold)", queued: "var(--dim)" };
+  const statusLabel: Record<string, string> = { done: "Done", today: "Today", queued: "Up next" };
+
+  return (
+    <div className="tab-enter space-y-3 px-4 pb-4 pt-2">
+      <div>
+        <h2 className="text-[24px] font-black tracking-[-0.05em]">Training Plan</h2>
+        <p className="text-[13px] text-[color:var(--muted)]">6-week roadmap</p>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
+        {state.plan.weeks.map((week) => (
+          <button key={week.week} type="button" onClick={() => onSelectWeek(week.week)} className={cn("flex-shrink-0 rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] transition", week.week === state.selectedWeek ? "paper-chip-active" : "paper-chip")}>
+            Wk {week.week}
+          </button>
+        ))}
+      </div>
+
+      {selectedWeek ? (
+        <>
+          <Card>
+            <Eyebrow tone="green">Week {selectedWeek.week}</Eyebrow>
+            <h3 className="mt-1 text-[20px] font-black tracking-[-0.05em]">{selectedWeek.label}</h3>
+            <p className="mt-2 text-[13px] leading-5 text-[color:var(--muted)]">{selectedWeek.readinessNote}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black">Focus: {selectedWeek.emphasis}</span>
+              <span className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black">{selectedWeek.sessions.length} sessions</span>
+            </div>
+          </Card>
+
+          {selectedWeek.sessions.map((session) => (
+            <SoftCard key={`${session.day}-${session.title}`}>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] text-[12px] font-black" style={{ background: `${statusColor[session.status]}18`, color: statusColor[session.status] }}>
+                  {session.day}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[15px] font-black tracking-[-0.03em] text-[color:var(--foreground)]">{session.title}</p>
+                    <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]" style={{ color: statusColor[session.status], background: `${statusColor[session.status]}18`, border: `1px solid ${statusColor[session.status]}38` }}>
+                      {statusLabel[session.status]}
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-[color:var(--muted)]">{session.drill}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{session.duration}</span>
+                    <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{session.focus}</span>
+                  </div>
+                  <p className="mt-2 text-[11px] font-bold" style={{ color: "var(--green)" }}>Target: {session.target}</p>
+                </div>
+              </div>
+            </SoftCard>
+          ))}
+        </>
+      ) : null}
+
+      <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading} className="paper-button-secondary flex h-11 w-full items-center justify-center rounded-[14px] text-[13px]">
+        {planLoading ? "Regenerating…" : "Regenerate plan"}
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUEL TAB
+// ─────────────────────────────────────────────────────────────────────────────
 
 const mealSchema = z.object({
   meal: z.enum(["Breakfast", "Lunch", "Snack", "Dinner"]),
   food: z.string().min(1),
 });
-
-const coachSchema = z.object({
-  prompt: z.string().min(4).max(240),
-});
-
 type MealForm = z.infer<typeof mealSchema>;
+
+function FuelTab({ state, totals, onAddMeal }: {
+  state: AppState; totals: ReturnType<typeof getNutritionTotals>; onAddMeal: (meal: FoodEntry["meal"], food: string) => void;
+}) {
+  const form = useForm<MealForm>({ resolver: zodResolver(mealSchema), defaultValues: { meal: "Breakfast", food: foodCatalog[0]?.name ?? "" } });
+  const calPct = Math.min(100, (totals.calories / state.nutrition.calorieTarget) * 100);
+  const protPct = Math.min(100, (totals.protein / state.nutrition.proteinTarget) * 100);
+  const carbPct = Math.min(100, (totals.carbs / state.nutrition.carbTarget) * 100);
+  const fatPct = Math.min(100, (totals.fat / state.nutrition.fatTarget) * 100);
+
+  return (
+    <div className="tab-enter space-y-3 px-4 pb-4 pt-2">
+      <div>
+        <h2 className="text-[24px] font-black tracking-[-0.05em]">Fuel</h2>
+        <p className="text-[13px] text-[color:var(--muted)]">Today&apos;s nutrition</p>
+      </div>
+
+      <Card>
+        <Eyebrow tone="green">Daily targets</Eyebrow>
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-end gap-1 leading-none"><span className="text-[32px] font-black tracking-[-0.07em]">{totals.calories}</span><span className="mb-1 text-[11px] text-[color:var(--dim)]">/ {state.nutrition.calorieTarget}</span></div>
+            <div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${calPct}%`, background: "var(--green)" }} /></div>
+            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">Calories</p>
+          </div>
+          <div>
+            <div className="flex items-end gap-1 leading-none"><span className="text-[32px] font-black tracking-[-0.07em]">{totals.protein}</span><span className="mb-1 text-[11px] text-[color:var(--dim)]">g / {state.nutrition.proteinTarget}g</span></div>
+            <div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${protPct}%`, background: "var(--blue)" }} /></div>
+            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">Protein</p>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <div className="flex items-end gap-1 leading-none"><span className="text-[20px] font-black tracking-[-0.05em]">{totals.carbs}</span><span className="mb-0.5 text-[10px] text-[color:var(--dim)]">g / {state.nutrition.carbTarget}g</span></div>
+            <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]"><div className="h-full rounded-full" style={{ width: `${carbPct}%`, background: "var(--gold)" }} /></div>
+            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--dim)]">Carbs</p>
+          </div>
+          <div>
+            <div className="flex items-end gap-1 leading-none"><span className="text-[20px] font-black tracking-[-0.05em]">{totals.fat}</span><span className="mb-0.5 text-[10px] text-[color:var(--dim)]">g / {state.nutrition.fatTarget}g</span></div>
+            <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]"><div className="h-full rounded-full" style={{ width: `${fatPct}%`, background: "var(--muted)" }} /></div>
+            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--dim)]">Fat</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <Eyebrow tone="green">Log food</Eyebrow>
+        <form className="mt-3 space-y-3" onSubmit={form.handleSubmit((v) => { onAddMeal(v.meal, v.food); form.reset({ meal: v.meal, food: v.food }); })}>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--muted)]">
+              Meal<select className="paper-field h-10 px-3 text-[13px]" {...form.register("meal")}><option>Breakfast</option><option>Lunch</option><option>Snack</option><option>Dinner</option></select>
+            </label>
+            <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--muted)]">
+              Food<select className="paper-field h-10 px-3 text-[13px]" {...form.register("food")}>{foodCatalog.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {foodCatalog.slice(0, 4).map((item) => (
+              <button key={item.name} type="button" onClick={() => form.setValue("food", item.name)} className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black">{item.name}</button>
+            ))}
+          </div>
+          <button type="submit" className="paper-button-primary flex h-10 w-full items-center justify-center rounded-[12px] text-[13px]">Add entry</button>
+        </form>
+      </Card>
+
+      {state.nutrition.entries.length > 0 ? (
+        <div className="space-y-2">
+          <Eyebrow>{state.nutrition.entries.length} {state.nutrition.entries.length === 1 ? "entry" : "entries"} today</Eyebrow>
+          {state.nutrition.entries.slice(0, 10).map((entry) => (
+            <SoftCard key={entry.id} className="py-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-black text-[color:var(--foreground)]">{entry.name}</p>
+                  <p className="text-[11px] text-[color:var(--muted)]">{entry.meal} · {entry.portion}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[14px] font-black" style={{ color: "var(--green)" }}>{entry.calories} kcal</p>
+                  <p className="text-[11px] text-[color:var(--dim)]">{entry.protein}g protein</p>
+                </div>
+              </div>
+            </SoftCard>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COACH TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+const coachSchema = z.object({ prompt: z.string().min(4, "Type at least 4 characters").max(240) });
 type CoachForm = z.infer<typeof coachSchema>;
 
-function paperSection({
-  eyebrow,
-  title,
-  summary,
-  children,
-  action,
-  className,
-}: {
-  eyebrow: string;
-  title: string;
-  summary?: string;
-  children: ReactNode;
-  action?: ReactNode;
-  className?: string;
-}) {
+function CoachTab({ state, onSend, busy }: { state: AppState; onSend: (prompt: string) => Promise<void>; busy: boolean }) {
+  const form = useForm<CoachForm>({ resolver: zodResolver(coachSchema), defaultValues: { prompt: "" } });
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [state.coach.messages, busy]);
+
   return (
-    <section className={cn("paper-card p-4 md:p-5", className)}>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-            {eyebrow}
-          </p>
-          <h2 className="mt-1 text-2xl font-black tracking-[-0.04em] text-[color:var(--foreground)] md:text-[28px]">
-            {title}
-          </h2>
-          {summary ? (
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--muted)] md:text-[15px]">
-              {summary}
-            </p>
+    <div className="tab-enter flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-2 scrollbar-none">
+        <div className="mb-3">
+          <h2 className="text-[24px] font-black tracking-[-0.05em]">AI Coach</h2>
+          <p className="text-[13px] text-[color:var(--muted)]">Personalized to your gaps and plan</p>
+        </div>
+
+        {state.coach.messages.length === 0 ? (
+          <Card className="py-6 text-center">
+            <ChatsCircle size={40} weight="light" style={{ margin: "0 auto", color: "var(--dim)" }} />
+            <p className="mt-3 text-[16px] font-black tracking-[-0.03em]">Ask your coach anything</p>
+            <p className="mt-1.5 text-[13px] leading-5 text-[color:var(--muted)]">Training advice, nutrition tips, plan adjustments — all specific to your benchmark gaps.</p>
+          </Card>
+        ) : null}
+
+        <div className="space-y-2.5">
+          {state.coach.messages.map((msg) => (
+            <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+              <div className={cn("max-w-[82%] rounded-[18px] px-4 py-3 text-[14px] leading-5", msg.role === "user" ? "border" : "paper-card-soft")} style={msg.role === "user" ? { background: "rgba(132,181,109,0.16)", borderColor: "rgba(132,181,109,0.28)", color: "var(--foreground)" } : undefined}>
+                {msg.text}
+              </div>
+            </div>
+          ))}
+          {busy ? (
+            <div className="flex justify-start">
+              <div className="paper-card-soft rounded-[18px] px-4 py-3">
+                <div className="flex gap-1.5">
+                  <span className="bounce-dot h-2 w-2 rounded-full bg-[color:var(--dim)]" />
+                  <span className="bounce-dot h-2 w-2 rounded-full bg-[color:var(--dim)]" />
+                  <span className="bounce-dot h-2 w-2 rounded-full bg-[color:var(--dim)]" />
+                </div>
+              </div>
+            </div>
           ) : null}
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
 
-type Tone = "neutral" | "green" | "gold" | "red" | "blue";
-
-function valueChip({
-  title,
-  value,
-  tone = "neutral",
-}: {
-  title: string;
-  value: string;
-  tone?: Tone;
-}) {
-  const toneStyles: Record<Tone, string> = {
-    neutral: "border-[color:rgba(245,236,216,0.12)] bg-[rgba(40,40,31,0.96)] text-[color:var(--muted)]",
-    green:
-      "border-[color:rgba(132,181,109,0.38)] bg-[rgba(132,181,109,0.16)] text-[color:var(--green)]",
-    gold:
-      "border-[color:rgba(210,160,74,0.42)] bg-[rgba(210,160,74,0.15)] text-[color:var(--gold)]",
-    red: "border-[color:rgba(215,121,109,0.36)] bg-[rgba(215,121,109,0.12)] text-[color:var(--red)]",
-    blue: "border-[color:rgba(134,178,199,0.34)] bg-[rgba(134,178,199,0.12)] text-[color:var(--blue)]",
-  };
-
-  return (
-    <div className={cn("rounded-[16px] border px-3 py-2 shadow-[2px_2px_0_rgba(0,0,0,0.16)]", toneStyles[tone])}>
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-80">{title}</p>
-      <p className="mt-1 text-lg font-black tracking-[-0.03em]">{value}</p>
-    </div>
-  );
-}
-
-function progressRow({
-  label,
-  current,
-  freshman,
-  jv,
-  varsity,
-  invert = false,
-}: {
-  label: string;
-  current: number;
-  freshman: number;
-  jv: number;
-  varsity: number;
-  invert?: boolean;
-}) {
-  const upper = invert ? freshman : varsity;
-  const lower = invert ? varsity : freshman;
-  const currentPct = invert
-    ? ((lower - current) / (lower - upper)) * 100
-    : ((current - lower) / (upper - lower)) * 100;
-
-  const markers = [freshman, jv, varsity];
-  return (
-    <div className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.95)] p-3">
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-bold tracking-[-0.02em] text-[color:var(--foreground)]">{label}</span>
-        <span className="font-mono text-[13px] text-[color:var(--green)]">
-          {typeof current === "number" ? current.toFixed(current < 10 ? 2 : 0) : current}
-        </span>
-      </div>
-      <div className="relative mt-3 h-3 overflow-hidden rounded-full bg-[rgba(245,236,216,0.07)]">
-        <div
-          className="absolute left-0 top-0 h-full rounded-full bg-[linear-gradient(90deg,var(--green),#a7c98f)]"
-          style={{ width: `${Math.max(6, Math.min(100, currentPct))}%` }}
-        />
-        {markers.map((marker, index) => {
-          const pct = invert
-            ? ((lower - marker) / (lower - upper)) * 100
-            : ((marker - lower) / (upper - lower)) * 100;
-          return (
-            <span
-              key={index}
-              className="absolute top-[-4px] h-5 w-[2px] rounded-full bg-[rgba(245,236,216,0.42)]"
-              style={{ left: `${Math.max(0, Math.min(100, pct))}%` }}
-            />
-          );
-        })}
-      </div>
-      <div className="mt-2 flex justify-between text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--dim)]">
-        <span>Freshman</span>
-        <span>JV</span>
-        <span>Varsity</span>
-      </div>
-    </div>
-  );
-}
-
-function navButton({
-  tab,
-  active,
-  onClick,
-}: {
-  tab: (typeof tabs)[number];
-  active: boolean;
-  onClick: (tab: TabKey) => void;
-}) {
-  const Icon = tab.icon;
-  return (
-    <button
-      type="button"
-      onClick={() => onClick(tab.key)}
-      className={cn(
-        "flex w-full items-center gap-3 rounded-[18px] border px-3 py-3 text-left transition duration-200",
-        active
-          ? "border-[color:rgba(245,236,216,0.14)] bg-[var(--foreground)] text-[color:#11120e] shadow-[2px_3px_0_rgba(0,0,0,0.22)]"
-          : "border-[color:rgba(245,236,216,0.08)] bg-[rgba(36,37,28,0.96)] text-[color:var(--muted)] hover:border-[color:rgba(132,181,109,0.34)] hover:text-[color:var(--foreground)]",
-      )}
-    >
-      <Icon size={19} weight="bold" />
-      <span className="flex-1 text-sm font-black tracking-[-0.02em]">{tab.label}</span>
-      <span
-        className={cn(
-          "rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em]",
-          active ? "bg-[rgba(17,18,14,0.12)]" : "bg-[rgba(245,236,216,0.08)]",
-        )}
-      >
-        {tab.short}
-      </span>
-    </button>
-  );
-}
-
-function Gauge({ score }: { score: number }) {
-  const safeScore = Math.max(0, Math.min(100, score));
-  return (
-    <div className="relative flex aspect-square w-full max-w-[240px] items-center justify-center rounded-full border border-[color:rgba(245,236,216,0.12)] bg-[radial-gradient(circle_at_50%_40%,rgba(132,181,109,0.14),rgba(36,37,28,0.98)_60%)] shadow-[0_0_0_1px_rgba(0,0,0,0.22)_inset]">
-      <div
-        className="absolute inset-3 rounded-full"
-        style={{
-          background: `conic-gradient(var(--green) 0 ${safeScore}%, rgba(245,236,216,0.08) ${safeScore}% 100%)`,
-        }}
-      />
-      <div className="absolute inset-7 rounded-full border border-[color:rgba(245,236,216,0.08)] bg-[rgba(12,13,10,0.9)]" />
-      <div className="relative z-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[color:var(--muted)]">
-          Varsity readiness
-        </p>
-        <p className="mt-1 text-5xl font-black tracking-[-0.07em] text-[color:var(--foreground)]">
-          {safeScore}
-        </p>
-        <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[color:var(--green)]">
-          out of 100
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function MealLogger({
-  onAddMeal,
-}: {
-  onAddMeal: (meal: FoodEntry["meal"], foodName: string) => void;
-}) {
-  const form = useForm<MealForm>({
-    resolver: zodResolver(mealSchema),
-    defaultValues: {
-      meal: "Breakfast",
-      food: foodCatalog[0]?.name ?? "",
-    },
-  });
-
-  return (
-    <form
-      className="grid gap-3 rounded-[22px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4"
-      onSubmit={form.handleSubmit((values) => {
-        onAddMeal(values.meal, values.food);
-        form.reset({ meal: values.meal, food: values.food });
-      })}
-    >
-      <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-        <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
-          Meal
-          <select className="paper-field px-3 py-3 text-sm" {...form.register("meal")}>
-            <option>Breakfast</option>
-            <option>Lunch</option>
-            <option>Snack</option>
-            <option>Dinner</option>
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
-          Food
-          <select className="paper-field px-3 py-3 text-sm" {...form.register("food")}>
-            {foodCatalog.map((item) => (
-              <option key={item.name} value={item.name}>
-                {item.name}
-              </option>
+        {!busy ? (
+          <div className="mt-4 flex flex-wrap gap-1.5 pb-2">
+            {coachPromptLibrary.map((prompt) => (
+              <button key={prompt} type="button" onClick={() => form.setValue("prompt", prompt)} className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black transition">{prompt}</button>
             ))}
-          </select>
-        </label>
-        <div className="flex items-end">
-          <button
-            type="submit"
-            className="paper-button-primary inline-flex h-12 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] transition duration-200"
-          >
-            Add meal
-          </button>
-        </div>
+          </div>
+        ) : null}
+
+        <div ref={endRef} />
       </div>
-      <div className="flex flex-wrap gap-2">
-        {foodCatalog.slice(0, 4).map((item) => (
-          <button
-            key={item.name}
-            type="button"
-            onClick={() => form.setValue("food", item.name)}
-            className="paper-chip rounded-full px-3 py-2 text-xs font-black transition hover:border-[color:rgba(132,181,109,0.34)] hover:text-[color:var(--foreground)]"
-          >
-            {item.name}
-          </button>
-        ))}
+
+      <div className="shrink-0 px-4 pt-3 pb-4" style={{ borderTop: "1px solid rgba(245,236,216,0.07)", background: "rgba(10,11,8,0.94)", backdropFilter: "blur(16px)" }}>
+        <form className="flex items-end gap-2" onSubmit={form.handleSubmit(async (v) => { await onSend(v.prompt); form.reset({ prompt: "" }); })}>
+          <textarea className="paper-field min-h-[42px] flex-1 resize-none px-3 py-2.5 text-[14px] leading-5" placeholder="Ask your coach…" rows={1} {...form.register("prompt")} />
+          <button type="submit" disabled={busy} className="paper-button-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] text-[16px]">↑</button>
+        </form>
+        {form.formState.errors.prompt ? <p className="mt-1.5 text-[11px] text-[color:var(--red)]">{form.formState.errors.prompt.message}</p> : null}
       </div>
-    </form>
+    </div>
   );
 }
 
-function CoachComposer({
-  defaultPrompt,
-  onSend,
-  busy,
-}: {
-  defaultPrompt: string;
-  onSend: (prompt: string) => void;
-  busy: boolean;
-}) {
-  const form = useForm<CoachForm>({
-    resolver: zodResolver(coachSchema),
-    defaultValues: { prompt: defaultPrompt },
-  });
+// ─────────────────────────────────────────────────────────────────────────────
+// Loading Screen
+// ─────────────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    form.reset({ prompt: defaultPrompt });
-  }, [defaultPrompt, form]);
-
+function LoadingScreen({ message }: { message: string }) {
   return (
-    <form
-      className="grid gap-3 rounded-[22px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4"
-      onSubmit={form.handleSubmit((values) => {
-        onSend(values.prompt);
-        form.reset({ prompt: "" });
-      })}
-    >
-      <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
-        Ask VarFoot
-        <textarea
-          className="paper-field min-h-[110px] resize-y px-4 py-3 text-sm leading-6"
-          placeholder="What should I work on today?"
-          {...form.register("prompt")}
-        />
-      </label>
-      <div className="flex flex-wrap gap-2">
-        {coachPromptLibrary.map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            onClick={() => form.setValue("prompt", prompt)}
-            className="paper-chip rounded-full px-3 py-2 text-xs font-black transition hover:border-[color:rgba(210,160,74,0.35)] hover:text-[color:var(--foreground)]"
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-medium text-[color:var(--dim)]">
-          VarFoot keeps replies specific to your gaps, plan, and intake.
-        </p>
-        <button
-          type="submit"
-          disabled={busy}
-          className="paper-button-primary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] transition duration-200 disabled:cursor-wait disabled:opacity-70"
-        >
-          {busy ? "Thinking..." : "Send"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function MetricField({
-  label,
-  value,
-  onChange,
-  suffix,
-  hint,
-}: {
-  label: string;
-  value: string | number;
-  onChange: (value: string) => void;
-  suffix?: string;
-  hint?: string;
-}) {
-  return (
-    <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
-      <span className="flex items-center justify-between gap-2">
-        <span>{label}</span>
-        {suffix ? <span className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--dim)]">{suffix}</span> : null}
-      </span>
-      <input
-        className="paper-field h-12 px-4 text-sm font-semibold tracking-[-0.01em]"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      {hint ? <span className="text-xs font-medium text-[color:var(--dim)]">{hint}</span> : null}
-    </label>
-  );
-}
-
-const authSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
-
-type AuthForm = z.infer<typeof authSchema>;
-type AuthMode = "sign-in" | "sign-up";
-
-function AuthGate({
-  loading,
-  error,
-  onSubmit,
-  onLocalDemo,
-}: {
-  loading: boolean;
-  error: string | null;
-  onSubmit: (mode: AuthMode, email: string, password: string) => Promise<void>;
-  onLocalDemo?: () => void;
-}) {
-  const [mode, setMode] = useState<AuthMode>("sign-in");
-  const form = useForm<AuthForm>({
-    resolver: zodResolver(authSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  return (
-    <div className="relative min-h-dvh overflow-hidden">
-      <div className="noise-layer" />
-
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col justify-center gap-6 px-4 py-6 md:px-6 lg:px-8">
-        <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="paper-shell rounded-[30px] p-5 md:p-7">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[color:var(--green)]">
-              VarFoot account
-            </p>
-            <h1 className="mt-2 max-w-3xl text-4xl font-black tracking-[-0.07em] text-[color:var(--foreground)] md:text-6xl">
-              One login. One athlete state. One roadmap that keeps its memory.
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-[color:var(--muted)] md:text-[15px]">
-              Sign in with your Supabase account to sync assessment data, meal logs, coach messages, and the
-              week-by-week training plan across devices.
-            </p>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {valueChip({ title: "Sync", value: "Supabase", tone: "green" })}
-              {valueChip({ title: "Fallback", value: "Local cache", tone: "blue" })}
-              {valueChip({ title: "Auth", value: "Email + password", tone: "gold" })}
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {screenMap.slice(0, 6).map((screen) => (
-                <div
-                  key={screen}
-                  className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] px-3 py-2 text-sm font-bold text-[color:var(--foreground)]"
-                >
-                  {screen}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="paper-shell rounded-[30px] p-5 md:p-6">
-            <div className="paper-card-soft p-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                {mode === "sign-in" ? "Sign in" : "Create account"}
-              </p>
-              <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[color:var(--foreground)]">
-                {mode === "sign-in" ? "Welcome back." : "Start your VarFoot account."}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-                {mode === "sign-in"
-                  ? "Use the Supabase account you already created. Your athlete state will load after auth."
-                  : "We’ll create a new auth user and store the app state under that account."}
-              </p>
-
-              <form
-                className="mt-5 grid gap-4"
-                onSubmit={form.handleSubmit(async (values) => {
-                  await onSubmit(mode, values.email.trim().toLowerCase(), values.password);
-                })}
-              >
-                <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
-                  Email
-                  <input
-                    className="paper-field h-12 px-4 text-sm font-semibold tracking-[-0.01em]"
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    {...form.register("email")}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
-                  Password
-                  <input
-                    className="paper-field h-12 px-4 text-sm font-semibold tracking-[-0.01em]"
-                    type="password"
-                    placeholder="Minimum 8 characters"
-                    autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-                    {...form.register("password")}
-                  />
-                </label>
-
-                {error ? (
-                  <div className="rounded-[18px] border border-[color:rgba(215,121,109,0.32)] bg-[rgba(215,121,109,0.12)] px-4 py-3 text-sm text-[color:var(--red)]">
-                    {error}
-                  </div>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="paper-button-primary inline-flex h-12 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] transition duration-200 disabled:cursor-wait disabled:opacity-70"
-                >
-                  {loading ? "Checking account..." : mode === "sign-in" ? "Sign in" : "Create account"}
-                </button>
-              </form>
-
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMode((current) => (current === "sign-in" ? "sign-up" : "sign-in"))}
-                  className="paper-chip rounded-full px-3 py-2 text-xs font-black"
-                >
-                  {mode === "sign-in" ? "Need an account?" : "Already have one?"}
-                </button>
-                {onLocalDemo ? (
-                  <button
-                    type="button"
-                    onClick={onLocalDemo}
-                    className="paper-chip rounded-full px-3 py-2 text-xs font-black"
-                  >
-                    Open local demo
-                  </button>
-                ) : null}
-              </div>
-
-              <p className="mt-4 text-xs leading-5 text-[color:var(--dim)]">
-                If the auth settings in Supabase require email confirmation, check your inbox before coming back.
-              </p>
-            </div>
-          </section>
+    <div className="phone-shell" style={{ background: "var(--background)" }}>
+      <div className="phone-column" style={{ justifyContent: "center", alignItems: "center", padding: 24 }}>
+        <div className="noise-layer" />
+        <div className="relative z-10 text-center">
+          <div className="mx-auto mb-5 flex h-[60px] w-[60px] items-center justify-center rounded-[20px] border" style={{ borderColor: "rgba(132,181,109,0.24)", background: "rgba(32,33,25,0.96)" }}>
+            <Image src="/varfoot-mark.svg" alt="VarFoot" width={34} height={34} />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[color:var(--green)]">VarFoot</p>
+          <p className="mt-2 text-[20px] font-black tracking-[-0.04em]">{message}</p>
         </div>
       </div>
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────────────────────────────────────
 
 function App() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const localMode = !supabase;
-  const [state, setState] = useState<AppState>(() => (localMode ? loadState() : createBlankState()));
+
+  const [state, setState] = useState<AppState>(() => localMode ? loadState() : createBlankState());
+  const [navTab, setNavTab] = useState<NavTab>("home");
+  const [demoMode, setDemoMode] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
   const [coachLoading, setCoachLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(!localMode);
   const [bootstrapLoading, setBootstrapLoading] = useState(!localMode);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [syncState, setSyncState] = useState<"local" | "loading" | "saving" | "synced" | "error" | "signed-out">(
-    localMode ? "local" : "loading",
-  );
+  const [syncState, setSyncState] = useState<"local" | "loading" | "saving" | "synced" | "error" | "signed-out">(localMode ? "local" : "loading");
   const saveTimerRef = useRef<number | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
+  // Auth
   useEffect(() => {
-    if (!supabase) {
-      return;
-    }
-
+    if (!supabase) return;
     let active = true;
-
     supabase.auth.getSession().then(({ data }) => {
-      if (!active) {
-        return;
-      }
-
+      if (!active) return;
       setSession(data.session);
       setAuthLoading(false);
-      if (!data.session) {
-        setBootstrapLoading(false);
-        setSyncState("signed-out");
-      }
+      if (!data.session) { setBootstrapLoading(false); setSyncState("signed-out"); }
     });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!active) {
-        return;
-      }
-
-      setSession(nextSession);
-      setAuthLoading(false);
-      setAuthError(null);
-      if (!nextSession) {
-        setBootstrapLoading(false);
-        setSyncState("signed-out");
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+      setSession(nextSession); setAuthLoading(false); setAuthError(null);
+      if (!nextSession) { setBootstrapLoading(false); setSyncState("signed-out"); }
     });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
+    return () => { active = false; subscription.unsubscribe(); };
   }, [supabase]);
 
+  // Bootstrap
   useEffect(() => {
-    if (!supabase || !session) {
-      return;
-    }
-
-    const client = supabase;
-    const currentSession = session;
-    let cancelled = false;
-
+    if (!supabase || !session) return;
+    const client = supabase; const currentSession = session; let cancelled = false;
     async function bootstrap() {
-      setBootstrapLoading(true);
-      setSyncState("loading");
-
+      setBootstrapLoading(true); setSyncState("loading");
       try {
         await upsertRemoteProfile(client, currentSession);
         const remoteState = await loadRemoteState(client, currentSession.user.id);
-        if (cancelled) {
-          return;
-        }
-
-        setState(remoteState ?? loadState());
-        setSyncState("synced");
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        setAuthError(error instanceof Error ? error.message : "Unable to load your cloud state.");
-        setState(loadState());
-        setSyncState("error");
-      } finally {
-        if (!cancelled) {
-          setBootstrapLoading(false);
-        }
-      }
+        if (cancelled) return;
+        setState(remoteState ?? loadState()); setSyncState("synced");
+      } catch (err) {
+        if (cancelled) return;
+        setAuthError(err instanceof Error ? err.message : "Unable to load cloud state."); setState(loadState()); setSyncState("error");
+      } finally { if (!cancelled) setBootstrapLoading(false); }
     }
-
     void bootstrap();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [session, supabase]);
 
+  // Auto-save
   useEffect(() => {
-    if (localMode) {
-      saveState(state);
-      return;
-    }
-
-    if (!session || bootstrapLoading) {
-      return;
-    }
-
-    const client = supabase;
-    const currentSession = session;
-
-    if (saveTimerRef.current !== null) {
-      window.clearTimeout(saveTimerRef.current);
-    }
-
+    if (localMode) { saveState(state); return; }
+    if (!session || bootstrapLoading) return;
+    const client = supabase!; const currentSession = session;
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => {
       void (async () => {
-        try {
-          setAuthError(null);
-          setSyncState("saving");
-          await upsertRemoteState(client, currentSession, state);
-          saveState(state);
-          setSyncState("synced");
-        } catch (error) {
-          setAuthError(error instanceof Error ? error.message : "Unable to save to Supabase.");
-          saveState(state);
-          setSyncState("error");
-        }
+        try { setSyncState("saving"); await upsertRemoteState(client, currentSession, state); saveState(state); setSyncState("synced"); }
+        catch (err) { setAuthError(err instanceof Error ? err.message : "Save failed."); saveState(state); setSyncState("error"); }
       })();
-    }, 300);
-
-    return () => {
-      if (saveTimerRef.current !== null) {
-        window.clearTimeout(saveTimerRef.current);
-      }
-    };
+    }, 400);
+    return () => { if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current); };
   }, [bootstrapLoading, localMode, session, state, supabase]);
+
+  // Scroll to top on tab change
+  useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, [navTab]);
 
   const scores = useMemo(() => getAssessmentScores(state.assessment), [state.assessment]);
   const nutritionTotals = useMemo(() => getNutritionTotals(state.nutrition.entries), [state.nutrition.entries]);
-  const selectedWeek = state.plan.weeks.find((week) => week.week === state.selectedWeek) ?? state.plan.weeks[0];
-  const topGaps = scores.gaps.slice(0, 3);
-  const currentTime = new Date();
-  const syncLabel =
-    syncState === "local"
-      ? "Local cache"
-      : syncState === "saving"
-        ? "Saving"
-        : syncState === "error"
-          ? "Sync issue"
-          : syncState === "signed-out"
-            ? "Signed out"
-            : "Supabase";
+  const selectedWeek = state.plan.weeks.find((w) => w.week === state.selectedWeek) ?? state.plan.weeks[0];
 
-  function patchState(updater: (prev: AppState) => AppState) {
-    setState(updater);
-  }
+  function patchState(updater: (prev: AppState) => AppState) { setState(updater); }
 
   function updateAssessment(key: keyof AppState["assessment"], value: string) {
     patchState((prev) => ({
       ...prev,
-      assessment: {
-        ...prev.assessment,
-        [key]:
-          key === "name" ||
-          key === "age" ||
-          key === "school" ||
-          key === "position" ||
-          key === "seasonGoal" ||
-          key === "height" ||
-          key === "weight"
-            ? value
-            : Number(value),
-      },
+      assessment: { ...prev.assessment, [key]: ["name", "age", "school", "position", "seasonGoal", "height", "weight"].includes(key) ? value : Number(value) },
     }));
   }
 
   async function generatePlan() {
     setPlanLoading(true);
     try {
-      const response = await fetch("/api/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state }),
-      });
-      const payload = (await response.json()) as {
-        generatedAt: string;
-        weeks: AppState["plan"]["weeks"];
-        summary: string;
-      };
-
-      patchState((prev) => ({
-        ...prev,
-        onboardingComplete: true,
-        activeTab: "today",
-        selectedWeek: 1,
-        plan: {
-          generatedAt: payload.generatedAt,
-          weeks: payload.weeks,
-        },
-      }));
-    } finally {
-      setPlanLoading(false);
-    }
+      const res = await fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
+      const payload = await res.json() as { generatedAt: string; weeks: AppState["plan"]["weeks"] };
+      patchState((prev) => ({ ...prev, onboardingComplete: true, selectedWeek: 1, plan: { generatedAt: payload.generatedAt, weeks: payload.weeks } }));
+      setNavTab("plan");
+    } finally { setPlanLoading(false); }
   }
 
   async function sendCoach(prompt: string) {
-    const trimmed = prompt.trim();
-    if (!trimmed) {
-      return;
-    }
-
+    const trimmed = prompt.trim(); if (!trimmed) return;
     setCoachLoading(true);
-    const userMessage = {
-      id: crypto.randomUUID(),
-      role: "user" as const,
-      text: trimmed,
-      createdAt: new Date().toISOString(),
-    };
-    patchState((prev) => ({
-      ...prev,
-      coach: {
-        ...prev.coach,
-        draft: trimmed,
-        messages: [...prev.coach.messages, userMessage],
-      },
-    }));
-
+    const userMsg = { id: crypto.randomUUID(), role: "user" as const, text: trimmed, createdAt: new Date().toISOString() };
+    patchState((prev) => ({ ...prev, coach: { ...prev.coach, draft: trimmed, messages: [...prev.coach.messages, userMsg] } }));
     try {
-      const response = await fetch("/api/coach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: trimmed, state }),
-      });
-      const payload = (await response.json()) as {
-        answer: string[];
-        timestamp: string;
-      };
-
-      patchState((prev) => ({
-        ...prev,
-        coach: {
-          ...prev.coach,
-          draft: "",
-          messages: [
-            ...prev.coach.messages,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              text: payload.answer.join(" "),
-              createdAt: payload.timestamp,
-            },
-          ],
-        },
-      }));
-    } finally {
-      setCoachLoading(false);
-    }
+      const res = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: trimmed, state }) });
+      const payload = await res.json() as { answer: string[]; timestamp: string };
+      patchState((prev) => ({ ...prev, coach: { ...prev.coach, draft: "", messages: [...prev.coach.messages, { id: crypto.randomUUID(), role: "assistant" as const, text: payload.answer.join(" "), createdAt: payload.timestamp }] } }));
+    } finally { setCoachLoading(false); }
   }
 
   function addMeal(meal: FoodEntry["meal"], foodName: string) {
     const match = foodCatalog.find((item) => item.name === foodName) ?? foodCatalog[0];
-    if (!match) {
-      return;
-    }
-
-    patchState((prev) => ({
-      ...prev,
-      nutrition: {
-        ...prev.nutrition,
-        entries: [addFoodEntry(match.name, match.portion, meal), ...prev.nutrition.entries],
-      },
-    }));
+    if (!match) return;
+    patchState((prev) => ({ ...prev, nutrition: { ...prev.nutrition, entries: [addFoodEntry(match.name, match.portion, meal), ...prev.nutrition.entries] } }));
   }
 
   function toggleDrill(name: string) {
     patchState((prev) => {
-      const alreadySaved = prev.library.savedDrills.includes(name);
-      return {
-        ...prev,
-        library: {
-          ...prev.library,
-          savedDrills: alreadySaved
-            ? prev.library.savedDrills.filter((drill) => drill !== name)
-            : [name, ...prev.library.savedDrills],
-        },
-      };
+      const saved = prev.library.savedDrills.includes(name);
+      return { ...prev, library: { savedDrills: saved ? prev.library.savedDrills.filter((d) => d !== name) : [name, ...prev.library.savedDrills] } };
     });
   }
 
-  function loadDemo() {
-    setState(createDemoState());
-  }
-
-  function resetState() {
-    setState(createBlankState());
-    clearState();
-  }
-
   async function handleAuthSubmit(mode: AuthMode, email: string, password: string) {
-    if (!supabase) {
-      return;
-    }
-
-    setAuthError(null);
-    setAuthLoading(true);
-
-    const result =
-      mode === "sign-in"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
-
-    if (result.error) {
-      setAuthError(result.error.message);
-      setAuthLoading(false);
-      return;
-    }
-
-    if (mode === "sign-up" && !result.data.session) {
-      setAuthError("Account created. Check your inbox to confirm your email, then sign back in.");
-      setAuthLoading(false);
-    }
+    if (!supabase) return;
+    setAuthError(null); setAuthLoading(true);
+    const result = mode === "sign-in" ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password });
+    if (result.error) { setAuthError(result.error.message); setAuthLoading(false); return; }
+    if (mode === "sign-up" && !result.data.session) { setAuthError("Account created! Check your inbox to confirm your email, then sign in."); setAuthLoading(false); }
   }
 
   async function handleSignOut() {
-    if (!supabase) {
-      return;
-    }
-
-    setAuthError(null);
+    if (!supabase) return;
     setAuthLoading(true);
     await supabase.auth.signOut();
-    clearState();
-    setSession(null);
-    setBootstrapLoading(false);
-    setSyncState("signed-out");
-    setAuthLoading(false);
+    clearState(); setState(createBlankState()); setSession(null);
+    setBootstrapLoading(false); setSyncState("signed-out"); setAuthLoading(false); setDemoMode(false);
   }
 
-  const fuelStatus =
-    nutritionTotals.calories >= state.nutrition.calorieTarget * 0.85
-      ? "green"
-      : nutritionTotals.calories >= state.nutrition.calorieTarget * 0.65
-        ? "gold"
-        : "red";
+  const tabTitles: Record<NavTab, string> = { home: "VarFoot", stats: "Stats", plan: "Plan", fuel: "Fuel", coach: "Coach" };
 
-  const nextSession = selectedWeek?.sessions.find((session) => session.status === "today") ?? selectedWeek?.sessions[0];
-
-  if (!localMode && authLoading) {
-    return <AuthGate loading error={authError} onSubmit={handleAuthSubmit} />;
-  }
-
-  if (!localMode && !session) {
-    return <AuthGate loading={false} error={authError} onSubmit={handleAuthSubmit} onLocalDemo={undefined} />;
-  }
-
-  if (!localMode && bootstrapLoading) {
+  // Auth gates
+  if (!localMode && !demoMode && (authLoading || bootstrapLoading)) return <LoadingScreen message="Loading your athlete profile…" />;
+  if (!localMode && !demoMode && !session) {
     return (
-      <div className="relative min-h-dvh overflow-hidden">
-        <div className="noise-layer" />
-        <div className="relative mx-auto flex min-h-dvh w-full max-w-4xl items-center justify-center px-4 py-6">
-          <section className="paper-shell w-full rounded-[30px] p-6 text-center md:p-8">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[color:var(--green)]">
-              Loading VarFoot
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] text-[color:var(--foreground)]">
-              Pulling your athlete state from Supabase.
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
-              We’re restoring your profile, plan, nutrition log, and coach history now.
-            </p>
-          </section>
-        </div>
-      </div>
+      <AuthScreen loading={authLoading} error={authError} onSubmit={handleAuthSubmit}
+        onDemo={() => { setState(createDemoState()); setDemoMode(true); }} />
     );
   }
 
+  const isCoach = navTab === "coach";
+
   return (
-    <div className="relative min-h-dvh overflow-hidden">
-      <div className="noise-layer" />
+    <div className="phone-shell" style={{ background: "var(--background)" }}>
+      <div className="phone-column">
+        <AppBar title={tabTitles[navTab]} playerName={state.assessment.name} syncState={syncState} onAvatarTap={() => setShowProfile(true)} />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-4 md:px-6 lg:py-6">
-        <header className="paper-shell rounded-[28px] px-5 py-4 md:px-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] shadow-[3px_4px_0_rgba(0,0,0,0.18)]">
-                <Image src="/varfoot-mark.svg" alt="VarFoot mark" width={40} height={40} priority />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[color:var(--green)]">
-                  VarFoot
-                </p>
-                <h1 className="text-3xl font-black tracking-[-0.05em] text-[color:var(--foreground)] md:text-[38px]">
-                  From assessment to varsity roadmap.
-                </h1>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-[color:var(--muted)] md:text-[15px]">
-                  A mobile-first training journal that turns drill results, benchmarks, nutrition, and coach
-                  feedback into one week-by-week plan.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[430px]">
-              {valueChip({
-                title: "Screen families",
-                value: `${screenMap.length}`,
-                tone: "gold",
-              })}
-              {valueChip({
-                title: "Sync mode",
-                value: localMode ? "Demo" : syncLabel,
-                tone: localMode ? "red" : syncState === "error" ? "red" : "green",
-              })}
-              {valueChip({
-                title: "Last saved",
-                value: syncLabel,
-                tone: syncState === "error" ? "red" : "blue",
-              })}
-            </div>
-          </div>
-        </header>
-
-        {!localMode && authError ? (
-          <div className="rounded-[20px] border border-[color:rgba(215,121,109,0.32)] bg-[rgba(215,121,109,0.12)] px-4 py-3 text-sm text-[color:var(--red)]">
-            {authError}
+        {authError && !showProfile ? (
+          <div className="flex items-start gap-3 px-4 py-3 text-[13px]" style={{ background: "rgba(215,121,109,0.1)", borderBottom: "1px solid rgba(215,121,109,0.18)", color: "var(--red)" }}>
+            <span className="flex-1">{authError}</span>
+            <button type="button" onClick={() => setAuthError(null)} style={{ color: "var(--red)", opacity: 0.7 }}><X size={16} /></button>
           </div>
         ) : null}
 
-        <main className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="paper-shell rounded-[28px] p-4 md:p-5 xl:sticky xl:top-6 xl:h-fit">
-            <div className="paper-card-soft p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                Current player
-              </p>
-              <div className="mt-3 flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)]">
-                  <span className="text-xl font-black tracking-[-0.04em] text-[color:var(--foreground)]">
-                    {state.assessment.name.slice(0, 2).toUpperCase()}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <h2 className="truncate text-xl font-black tracking-[-0.04em]">{state.assessment.name}</h2>
-                  <p className="text-sm text-[color:var(--muted)]">{state.assessment.school}</p>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[color:var(--dim)]">
-                    {state.assessment.position}
-                  </p>
-                </div>
-              </div>
-              {!localMode ? (
-                <button
-                  type="button"
-                  onClick={() => void handleSignOut()}
-                  className="mt-4 w-full rounded-[16px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] px-4 py-3 text-sm font-black tracking-[-0.02em] text-[color:var(--foreground)] transition hover:border-[color:rgba(215,121,109,0.36)] hover:text-[color:var(--red)]"
-                >
-                  Sign out
-                </button>
-              ) : null}
-
-              <div className="mt-4 flex items-center gap-4">
-                <Gauge score={Math.round(scores.overallScore)} />
-              </div>
-
-              <div className="mt-4 grid gap-2">
-                {valueChip({
-                  title: "Goal",
-                  value: state.assessment.seasonGoal,
-                  tone: "neutral",
-                })}
-                {valueChip({
-                  title: "Best gap",
-                  value: `${findMetricLabel((topGaps[0]?.metric ?? "passing") as MetricKey)}`,
-                  tone: "green",
-                })}
-              </div>
-            </div>
-
-            <nav className="mt-4 grid gap-2">
-              {tabs.map((tab) => navButton({ tab, active: tab.key === state.activeTab, onClick: (key) => patchState((prev) => ({ ...prev, activeTab: key })) }))}
-            </nav>
-
-            <div className="mt-4 grid gap-2">
-              <button
-                type="button"
-                onClick={loadDemo}
-                className="paper-button-primary inline-flex h-12 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] transition duration-200"
-              >
-                Load demo athlete
-              </button>
-              <button
-                type="button"
-                onClick={resetState}
-                className="paper-button-secondary inline-flex h-12 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] transition duration-200"
-              >
-                Clear local data
-              </button>
-            </div>
-
-            <div className="mt-4 grid gap-2 text-sm">
-              <div className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--dim)]">Last update</p>
-                <p className="mt-1 font-bold text-[color:var(--foreground)]">
-                  {currentTime.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                </p>
-              </div>
-              <div className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--dim)]">Mapped screens</p>
-                <p className="mt-1 font-bold text-[color:var(--foreground)]">{getScreenHint()}</p>
-              </div>
-            </div>
-          </aside>
-
-          <div className="grid gap-5">
-            {state.onboardingComplete ? null : (
-              <section className="paper-card p-4 md:p-5">
-                <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                  <div className="rounded-[24px] border border-[color:rgba(245,236,216,0.12)] bg-[linear-gradient(180deg,rgba(132,181,109,0.13),rgba(24,25,18,0.98))] p-5">
-                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                      Launch / Welcome
-                    </p>
-                    <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] md:text-4xl">
-                      Build the plan before the next tryout window opens.
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--muted)] md:text-[15px]">
-                      Start with your physical baseline, then compare against varsity targets and let the roadmap
-                      adjust itself around the biggest gaps.
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => patchState((prev) => ({ ...prev, activeTab: "assess" }))}
-                        className="paper-button-primary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em]"
-                      >
-                        Start assessment
-                      </button>
-                      <button
-                        type="button"
-                        onClick={loadDemo}
-                        className="paper-button-secondary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em]"
-                      >
-                        Load demo athlete
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3">
-                    <div className="paper-card-soft p-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">
-                        Handoff map
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        {screenMap.slice(0, 6).map((screen) => (
-                          <div
-                            key={screen}
-                            className="rounded-[16px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] px-3 py-2 text-xs font-bold text-[color:var(--foreground)]"
-                          >
-                            {screen}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {valueChip({ title: "Assessment", value: "Physical + technical", tone: "green" })}
-                      {valueChip({ title: "Plan", value: "6-week roadmap", tone: "gold" })}
-                      {valueChip({ title: "Data", value: "Local cache", tone: "blue" })}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {state.activeTab === "today" ? (
-              <TodayTab
-                state={state}
-                scores={scores}
-                nutritionTotals={nutritionTotals}
-                nextSession={nextSession}
-                topGaps={topGaps}
-                selectedWeek={selectedWeek}
-                onGeneratePlan={generatePlan}
-                planLoading={planLoading}
-              />
-            ) : null}
-
-            {state.activeTab === "assess" ? (
-              <AssessTab
-                state={state}
-                scores={scores}
-                onAssessmentChange={updateAssessment}
-                onGeneratePlan={generatePlan}
-                planLoading={planLoading}
-              />
-            ) : null}
-
-            {state.activeTab === "plan" ? (
-              <PlanTab
-                state={state}
-                selectedWeek={selectedWeek}
-                onSelectWeek={(week) => patchState((prev) => ({ ...prev, selectedWeek: week }))}
-                onGeneratePlan={generatePlan}
-                planLoading={planLoading}
-              />
-            ) : null}
-
-            {state.activeTab === "train" ? (
-              <TrainTab
-                state={state}
-                onToggleDrill={toggleDrill}
-              />
-            ) : null}
-
-            {state.activeTab === "fuel" ? (
-              <FuelTab
-                state={state}
-                totals={nutritionTotals}
-                fuelStatus={fuelStatus}
-                onAddMeal={addMeal}
-              />
-            ) : null}
-
-            {state.activeTab === "coach" ? (
-              <CoachTab
-                state={state}
-                scores={scores}
-                onSend={sendCoach}
-                busy={coachLoading}
-              />
-            ) : null}
-
-            {state.activeTab === "library" ? (
-              <LibraryTab
-                state={state}
-                onToggleDrill={toggleDrill}
-              />
-            ) : null}
-
-            {state.activeTab === "profile" ? (
-              <ProfileTab
-                state={state}
-                scores={scores}
-                onAssessmentChange={updateAssessment}
-                onLoadDemo={loadDemo}
-                onReset={resetState}
-                localMode={localMode}
-              />
-            ) : null}
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-}
-
-function TodayTab({
-  state,
-  scores,
-  nutritionTotals,
-  nextSession,
-  topGaps,
-  selectedWeek,
-  onGeneratePlan,
-  planLoading,
-}: {
-  state: AppState;
-  scores: ReturnType<typeof getAssessmentScores>;
-  nutritionTotals: ReturnType<typeof getNutritionTotals>;
-  nextSession?: AppState["plan"]["weeks"][number]["sessions"][number];
-  topGaps: ReturnType<typeof getAssessmentScores>["gaps"];
-  selectedWeek?: AppState["plan"]["weeks"][number];
-  onGeneratePlan: () => void;
-  planLoading: boolean;
-}) {
-  const focusCopy = topGaps.slice(0, 2).map((item) => item.label).join(" · ");
-
-  return (
-    <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-      {paperSection({
-        eyebrow: "Dashboard Overview",
-        title: "What changed, what matters, what to do next.",
-        summary:
-          "The dashboard keeps the morning briefing short: one readiness score, the next session, the biggest gap, and fuel status.",
-        action: (
-          <button
-            type="button"
-            onClick={onGeneratePlan}
-            disabled={planLoading}
-            className="paper-button-primary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] disabled:cursor-wait disabled:opacity-70"
-          >
-            {planLoading ? "Generating..." : "Regenerate plan"}
-          </button>
-        ),
-        children: (
-          <div className="grid gap-4">
-            <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="grid gap-3">
-                {valueChip({ title: "Readiness", value: `${Math.round(scores.overallScore)} / 100`, tone: "green" })}
-                {valueChip({
-                  title: "Current focus",
-                  value: focusCopy || "Passing and first touch",
-                  tone: "gold",
-                })}
-                {valueChip({
-                  title: "Plan week",
-                  value: selectedWeek ? `Week ${selectedWeek.week} · ${selectedWeek.label}` : "Not generated",
-                  tone: "blue",
-                })}
-              </div>
-
-              <div className="grid gap-3">
-                <div className="paper-card-soft p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Next session</p>
-                  <div className="mt-3 flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-2xl font-black tracking-[-0.05em] text-[color:var(--foreground)]">
-                        {nextSession?.title ?? "Generate your first week"}
-                      </h3>
-                      <p className="mt-1 text-sm text-[color:var(--muted)]">
-                        {nextSession?.drill ?? "The roadmap will pick this up after the first assessment."}
-                      </p>
-                    </div>
-                    <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(132,181,109,0.16)]">
-                      <Timer size={26} weight="bold" className="text-[color:var(--green)]" />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {nextSession ? (
-                      <>
-                        {valueChip({ title: "Day", value: nextSession.day, tone: "green" })}
-                        {valueChip({ title: "Duration", value: nextSession.duration, tone: "neutral" })}
-                        {valueChip({ title: "Target", value: nextSession.target, tone: "gold" })}
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="paper-card-soft p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Nutrition</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {valueChip({
-                      title: "Calories",
-                      value: `${nutritionTotals.calories} / ${state.nutrition.calorieTarget}`,
-                      tone: nutritionTotals.calories >= state.nutrition.calorieTarget * 0.85 ? "green" : "gold",
-                    })}
-                    {valueChip({
-                      title: "Protein",
-                      value: `${nutritionTotals.protein} g / ${state.nutrition.proteinTarget} g`,
-                      tone: nutritionTotals.protein >= state.nutrition.proteinTarget * 0.7 ? "green" : "red",
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {scores.gaps.slice(0, 3).map((gap) => (
-                <div key={gap.metric} className="paper-card-soft p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">
-                    {assessmentLabels[gap.metric]}
-                  </p>
-                  <p className="mt-2 text-3xl font-black tracking-[-0.06em] text-[color:var(--foreground)]">
-                    {Math.round(gap.score)}%
-                  </p>
-                  <p className="mt-1 text-sm text-[color:var(--muted)]">
-                    {gap.higherIsBetter ? "Need more clean reps" : "Lower is better here"}.
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ),
-      })}
-
-      {paperSection({
-        eyebrow: "Benchmark Summary",
-        title: "Freshman, JV, varsity.",
-        summary: "The same bar applies across the board. The table below shows where the current athlete sits.",
-        children: (
-          <div className="grid gap-3">
-            {(
-              [
-                "passing",
-                "shooting",
-                "dribbling",
-                "firstTouch",
-                "speed",
-                "pushups",
-                "plankSeconds",
-                "wallSitSeconds",
-              ] as MetricKey[]
-            ).map((metric) => (
-              <div key={metric} className="grid gap-2">
-                {progressRow({
-                  label: assessmentLabels[metric],
-                  current: state.assessment[metric],
-                  freshman: assessmentBenchmarks[metric].freshman,
-                  jv: assessmentBenchmarks[metric].jv,
-                  varsity: assessmentBenchmarks[metric].varsity,
-                  invert: assessmentBenchmarks[metric].higherIsBetter === false,
-                })}
-              </div>
-            ))}
-          </div>
-        ),
-      })}
-    </div>
-  );
-}
-
-function AssessTab({
-  state,
-  scores,
-  onAssessmentChange,
-  onGeneratePlan,
-  planLoading,
-}: {
-  state: AppState;
-  scores: ReturnType<typeof getAssessmentScores>;
-  onAssessmentChange: (key: keyof AppState["assessment"], value: string) => void;
-  onGeneratePlan: () => void;
-  planLoading: boolean;
-}) {
-  const physicalMetrics: Array<keyof Pick<AppState["assessment"], "height" | "weight" | "pushups" | "plankSeconds" | "wallSitSeconds">> = [
-    "height",
-    "weight",
-    "pushups",
-    "plankSeconds",
-    "wallSitSeconds",
-  ];
-
-  const technicalMetrics: Array<keyof Pick<
-    AppState["assessment"],
-    "passing" | "shooting" | "dribbling" | "firstTouch" | "speed"
-  >> = ["passing", "shooting", "dribbling", "firstTouch", "speed"];
-
-  return (
-    <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-      {paperSection({
-        eyebrow: "Assessment Hub",
-        title: "Set the baseline once, then let the roadmap do the work.",
-        summary:
-          "The physical questions come straight from the PDF handout. The technical inputs mirror the handoff screens and feed the weekly plan.",
-        action: (
-          <button
-            type="button"
-            onClick={onGeneratePlan}
-            disabled={planLoading}
-            className="paper-button-primary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] disabled:cursor-wait disabled:opacity-70"
-          >
-            {planLoading ? "Generating..." : "Generate varsity plan"}
-          </button>
-        ),
-        children: (
-          <div className="grid gap-5">
-            <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="grid gap-3">
-                <div className="rounded-[24px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                    Profile setup
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <MetricField
-                      label="Name"
-                      value={state.assessment.name}
-                      onChange={(value) => onAssessmentChange("name", value)}
-                    />
-                    <MetricField label="Age" value={state.assessment.age} onChange={(value) => onAssessmentChange("age", value)} />
-                    <MetricField
-                      label="School"
-                      value={state.assessment.school}
-                      onChange={(value) => onAssessmentChange("school", value)}
-                    />
-                    <MetricField
-                      label="Position"
-                      value={state.assessment.position}
-                      onChange={(value) => onAssessmentChange("position", value)}
-                    />
-                    <label className="md:col-span-2 grid gap-2 text-sm font-bold text-[color:var(--muted)]">
-                      <span>Season goal</span>
-                      <input
-                        className="paper-field h-12 px-4 text-sm font-semibold tracking-[-0.01em]"
-                        value={state.assessment.seasonGoal}
-                        onChange={(event) => onAssessmentChange("seasonGoal", event.target.value)}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                    Physical questions
-                  </p>
-                  <p className="mt-1 text-sm text-[color:var(--muted)]">
-                    These match the PDF: height/weight, pushups, plank, and wall sit.
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {physicalMetrics.map((metric) => {
-                      const isText = metric === "height" || metric === "weight";
-                      return (
-                        <MetricField
-                          key={metric}
-                          label={findMetricLabel(metric as MetricKey)}
-                          value={state.assessment[metric]}
-                          onChange={(value) => onAssessmentChange(metric, value)}
-                          suffix={isText ? "Reference" : "Seconds / reps"}
-                          hint={
-                            metric === "pushups"
-                              ? "PDF benchmark target: 65 pushups"
-                              : metric === "plankSeconds"
-                                ? "PDF benchmark target: 5 minute plank"
-                                : metric === "wallSitSeconds"
-                                  ? "PDF benchmark target: 4.5 minute wall sit"
-                                  : undefined
-                          }
-                        />
-                      );
-                    })}
-                  </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <Image
-                      src="/drill-source/page-1.png"
-                      alt="PDF physical assessment page 1"
-                      width={900}
-                      height={1100}
-                      className="w-full rounded-[20px] border border-[color:rgba(245,236,216,0.12)] object-cover"
-                    />
-                    <Image
-                      src="/drill-source/page-2.png"
-                      alt="PDF physical assessment page 2"
-                      width={900}
-                      height={1100}
-                      className="w-full rounded-[20px] border border-[color:rgba(245,236,216,0.12)] object-cover"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3">
-                <div className="rounded-[24px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                    Technical inputs
-                  </p>
-                  <p className="mt-1 text-sm text-[color:var(--muted)]">
-                    Each value is compared to the freshman / JV / varsity targets.
-                  </p>
-                  <div className="mt-4 grid gap-3">
-                    {technicalMetrics.map((metric) => {
-                      const benchmark = assessmentBenchmarks[metric];
-                      return (
-                        <MetricField
-                          key={metric}
-                          label={assessmentLabels[metric]}
-                          value={state.assessment[metric]}
-                          onChange={(value) => onAssessmentChange(metric, value)}
-                          suffix={benchmark.higherIsBetter === false ? "Lower is better" : "Higher is better"}
-                          hint={`Freshman ${benchmark.freshman}${benchmark.unit === "%" ? "%" : ` ${benchmark.unit}`} · JV ${benchmark.jv}${benchmark.unit === "%" ? "%" : ` ${benchmark.unit}`} · Varsity ${benchmark.varsity}${benchmark.unit === "%" ? "%" : ` ${benchmark.unit}`}`}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                    Assessment review
-                  </p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    {valueChip({
-                      title: "Technical",
-                      value: `${Math.round(scores.technicalScore)}%`,
-                      tone: "green",
-                    })}
-                    {valueChip({
-                      title: "Physical",
-                      value: `${Math.round(scores.physicalScore)}%`,
-                      tone: "gold",
-                    })}
-                    {valueChip({
-                      title: "Overall",
-                      value: `${Math.round(scores.overallScore)}%`,
-                      tone: "blue",
-                    })}
-                  </div>
-                  <div className="mt-4 rounded-[20px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4">
-                    <p className="text-sm font-bold text-[color:var(--foreground)]">
-                      Biggest gap: {assessmentLabels[scores.gaps[0]?.metric ?? "passing"]} needs the most work.
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
-                      Use this as the first block in the weekly plan. Everything else can sit behind it without
-                      changing the top priority.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="paper-card-soft p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Target bar</p>
-                  <div className="mt-3 grid gap-2">
-                    {topGapRows(scores).map((item) => (
-                      <div key={item.metric} className="rounded-[16px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-3">
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="font-bold text-[color:var(--foreground)]">{item.label}</span>
-                          <span className="font-mono text-[color:var(--green)]">{item.currentLabel}</span>
-                        </div>
-                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(245,236,216,0.08)]">
-                          <div
-                            className="h-full rounded-full bg-[linear-gradient(90deg,var(--green),#d2a04a)]"
-                            style={{ width: `${Math.max(8, item.score)}%` }}
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-[color:var(--muted)]">{item.note}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ),
-      })}
-    </div>
-  );
-}
-
-function topGapRows(scores: ReturnType<typeof getAssessmentScores>) {
-  return scores.gaps.slice(0, 3).map((gap) => ({
-    metric: gap.metric,
-    label: gap.label,
-    currentLabel: `${typeof gap.value === "number" ? gap.value : String(gap.value)}${assessmentBenchmarks[gap.metric].unit === "%" ? "%" : ` ${assessmentBenchmarks[gap.metric].unit}`}`,
-    score: gap.score,
-    note: gap.higherIsBetter
-      ? `${gap.gap.toFixed(0)} more clean reps needed to reach varsity.`
-      : `${gap.gap.toFixed(2)} seconds to trim before it reaches varsity pace.`,
-  }));
-}
-
-function PlanTab({
-  state,
-  selectedWeek,
-  onSelectWeek,
-  onGeneratePlan,
-  planLoading,
-}: {
-  state: AppState;
-  selectedWeek?: AppState["plan"]["weeks"][number];
-  onSelectWeek: (week: number) => void;
-  onGeneratePlan: () => void;
-  planLoading: boolean;
-}) {
-  return paperSection({
-    eyebrow: "Plan Roadmap",
-    title: "Week-by-week work, not random workouts.",
-    summary:
-      "The plan repeats the same logic the handoff shows: a roadmap, a week overview, then a session detail with clear targets.",
-    action: (
-      <button
-        type="button"
-        onClick={onGeneratePlan}
-        disabled={planLoading}
-        className="paper-button-primary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] disabled:cursor-wait disabled:opacity-70"
-      >
-        {planLoading ? "Generating..." : state.plan.weeks.length ? "Regenerate" : "Generate"}
-      </button>
-    ),
-    children: (
-      <div className="grid gap-4">
-        <div className="flex flex-wrap gap-2">
-          {state.plan.weeks.length ? (
-            state.plan.weeks.map((week) => (
-              <button
-                key={week.week}
-                type="button"
-                onClick={() => onSelectWeek(week.week)}
-                className={cn(
-                  "rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em] transition",
-                  state.selectedWeek === week.week
-                    ? "paper-chip-active"
-                    : "paper-chip hover:border-[color:rgba(132,181,109,0.34)] hover:text-[color:var(--foreground)]",
-                )}
-              >
-                Week {week.week}
-              </button>
-            ))
-          ) : (
-            <p className="text-sm text-[color:var(--muted)]">
-              No roadmap yet. Generate the plan after finishing the assessment.
-            </p>
-          )}
+        <div ref={contentRef} className={cn("content-area", isCoach ? "content-area-fixed" : "content-area-scroll")}>
+          {navTab === "home" && <HomeTab state={state} scores={scores} nutritionTotals={nutritionTotals} onGoToStats={() => setNavTab("stats")} onGoToPlan={() => setNavTab("plan")} onLoadDemo={() => setState(createDemoState())} onGeneratePlan={generatePlan} planLoading={planLoading} />}
+          {navTab === "stats" && <StatsTab state={state} scores={scores} onAssessmentChange={updateAssessment} onGeneratePlan={generatePlan} onToggleDrill={toggleDrill} planLoading={planLoading} />}
+          {navTab === "plan" && <PlanTab state={state} selectedWeek={selectedWeek} onSelectWeek={(week) => patchState((prev) => ({ ...prev, selectedWeek: week }))} onGeneratePlan={generatePlan} planLoading={planLoading} />}
+          {navTab === "fuel" && <FuelTab state={state} totals={nutritionTotals} onAddMeal={addMeal} />}
+          {navTab === "coach" && <CoachTab state={state} onSend={sendCoach} busy={coachLoading} />}
         </div>
 
-        {selectedWeek ? (
-          <div className="grid gap-4 xl:grid-cols-[0.86fr_1.14fr]">
-            <div className="rounded-[24px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                Week overview
-              </p>
-              <h3 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[color:var(--foreground)]">
-                Week {selectedWeek.week} · {selectedWeek.label}
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{selectedWeek.readinessNote}</p>
-              <div className="mt-4 grid gap-2">
-                {valueChip({ title: "Focus", value: selectedWeek.emphasis, tone: "green" })}
-                {valueChip({
-                  title: "Progress",
-                  value: `${selectedWeek.sessions.filter((session) => session.status === "done").length}/${selectedWeek.sessions.length} sessions`,
-                  tone: "gold",
-                })}
-              </div>
-              <div className="mt-4 rounded-[20px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--dim)]">Session flow</p>
-                <div className="mt-3 grid gap-2">
-                  {selectedWeek.sessions.map((session) => (
-                    <div
-                      key={session.day}
-                      className={cn(
-                        "rounded-[16px] border px-3 py-3",
-                        session.status === "today"
-                          ? "border-[color:rgba(132,181,109,0.36)] bg-[rgba(132,181,109,0.13)]"
-                          : "border-[color:rgba(245,236,216,0.1)] bg-[rgba(24,25,18,0.86)]",
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-[0.18em] text-[color:var(--dim)]">
-                            {session.day}
-                          </p>
-                          <p className="mt-1 text-sm font-bold text-[color:var(--foreground)]">{session.title}</p>
-                        </div>
-                        <span className="text-xs font-black uppercase tracking-[0.18em] text-[color:var(--green)]">
-                          {session.status}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-[color:var(--muted)]">
-                        {session.drill} · {session.duration}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+        <BottomNav active={navTab} onSelect={setNavTab} />
 
-            <div className="rounded-[24px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-                Session detail
-              </p>
-              <div className="mt-4 grid gap-3">
-                {selectedWeek.sessions.map((session) => (
-                  <div key={session.day} className="rounded-[20px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">
-                          {session.day}
-                        </p>
-                        <h4 className="mt-1 text-2xl font-black tracking-[-0.05em] text-[color:var(--foreground)]">
-                          {session.title}
-                        </h4>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Timer size={18} weight="bold" className="text-[color:var(--green)]" />
-                        <span className="text-sm font-black text-[color:var(--green)]">{session.duration}</span>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
-                      Drill: <span className="font-bold text-[color:var(--foreground)]">{session.drill}</span>
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
-                      Focus: <span className="font-bold text-[color:var(--foreground)]">{session.focus}</span>
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
-                      Target: <span className="font-bold text-[color:var(--foreground)]">{session.target}</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {showProfile ? (
+          <ProfileSheet state={state} localMode={localMode} syncState={syncState} onSignOut={handleSignOut}
+            onLoadDemo={() => { setState(createDemoState()); setShowProfile(false); }}
+            onReset={() => { setState(createBlankState()); clearState(); setShowProfile(false); }}
+            onClose={() => setShowProfile(false)} />
         ) : null}
       </div>
-    ),
-  });
+    </div>
+  );
 }
 
-function TrainTab({
-  state,
-  onToggleDrill,
-}: {
-  state: AppState;
-  onToggleDrill: (name: string) => void;
-}) {
-  const [selectedDrill, setSelectedDrill] = useState<(typeof drillLibrary)[number]["name"]>(drillLibrary[0].name);
-  const activeDrill = drillLibrary.find((drill) => drill.name === selectedDrill) ?? drillLibrary[0];
-
-  return paperSection({
-    eyebrow: "Drill Library + Content",
-    title: "Keep the library small and repeat the useful drills.",
-    summary:
-      "The handoff calls for a drill library, a drill detail screen, and saved drills. This tab keeps all three in one place.",
-    children: (
-      <div className="grid gap-4 xl:grid-cols-[0.88fr_1.12fr]">
-        <div className="grid gap-3">
-          {drillLibrary.map((drill) => {
-            const saved = state.library.savedDrills.includes(drill.name);
-            return (
-              <button
-                key={drill.name}
-                type="button"
-                onClick={() => setSelectedDrill(drill.name)}
-                className={cn(
-                  "rounded-[22px] border p-4 text-left transition",
-                  selectedDrill === drill.name
-                    ? "border-[color:rgba(132,181,109,0.38)] bg-[rgba(132,181,109,0.13)] shadow-[3px_3px_0_rgba(0,0,0,0.22)]"
-                    : "border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] hover:border-[color:rgba(132,181,109,0.28)]",
-                )}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">{drill.focus}</p>
-                    <h3 className="mt-1 text-xl font-black tracking-[-0.04em] text-[color:var(--foreground)]">
-                      {drill.name}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onToggleDrill(drill.name);
-                    }}
-                    className={cn(
-                      "rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em]",
-                      saved ? "paper-chip-active" : "paper-chip",
-                    )}
-                  >
-                    {saved ? "Saved" : "Save"}
-                  </button>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{drill.instructions}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {valueChip({ title: "Time", value: drill.duration, tone: "blue" })}
-                  {valueChip({ title: "Target", value: drill.target, tone: "gold" })}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="grid gap-3">
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-              Drill detail
-            </p>
-            <h3 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[color:var(--foreground)]">
-              {activeDrill.name}
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{activeDrill.instructions}</p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              {valueChip({ title: "Focus", value: activeDrill.focus, tone: "green" })}
-              {valueChip({ title: "Time", value: activeDrill.duration, tone: "blue" })}
-              {valueChip({ title: "Target", value: activeDrill.target, tone: "gold" })}
-            </div>
-          </div>
-
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Saved drills</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {state.library.savedDrills.length ? (
-                state.library.savedDrills.map((drill) => (
-                  <span
-                    key={drill}
-                    className="paper-chip rounded-full px-3 py-2 text-xs font-black"
-                  >
-                    {drill}
-                  </span>
-                ))
-              ) : (
-                <p className="text-sm text-[color:var(--muted)]">Tap Save on any drill to pin it here.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-  });
+export default function Page() {
+  return <App />;
 }
-
-function FuelTab({
-  state,
-  totals,
-  fuelStatus,
-  onAddMeal,
-}: {
-  state: AppState;
-  totals: ReturnType<typeof getNutritionTotals>;
-  fuelStatus: "green" | "gold" | "red";
-  onAddMeal: (meal: FoodEntry["meal"], foodName: string) => void;
-}) {
-  return paperSection({
-    eyebrow: "Nutrition",
-    title: "Track food by ingredient and let the macros add up automatically.",
-    summary:
-      "The logger uses a simple portion-based catalog so the athlete can get the numbers without opening a spreadsheet.",
-    children: (
-      <div className="grid gap-4 xl:grid-cols-[0.82fr_1.18fr]">
-        <div className="grid gap-3">
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">Macro goals</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {valueChip({
-                title: "Calories",
-                value: `${totals.calories} / ${state.nutrition.calorieTarget}`,
-                tone: fuelStatus,
-              })}
-              {valueChip({
-                title: "Protein",
-                value: `${totals.protein} / ${state.nutrition.proteinTarget} g`,
-                tone: totals.protein >= state.nutrition.proteinTarget * 0.7 ? "green" : "red",
-              })}
-              {valueChip({
-                title: "Carbs",
-                value: `${totals.carbs} / ${state.nutrition.carbTarget} g`,
-                tone: "blue",
-              })}
-              {valueChip({
-                title: "Fat",
-                value: `${totals.fat} / ${state.nutrition.fatTarget} g`,
-                tone: "gold",
-              })}
-            </div>
-            <div className="mt-4 rounded-[20px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4">
-              <p className="text-sm font-bold text-[color:var(--foreground)]">
-                {fuelStatus === "green"
-                  ? "Fuel is in range."
-                  : fuelStatus === "gold"
-                    ? "Close to target. One meal or shake should cover the gap."
-                    : "Under target. Add carbs and protein before the next session."}
-              </p>
-              <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
-                The app keeps the tone factual: enough energy for the next session, enough protein for recovery,
-                and enough carbs to keep the legs moving.
-              </p>
-            </div>
-          </div>
-
-          <MealLogger onAddMeal={onAddMeal} />
-        </div>
-
-        <div className="grid gap-3">
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-              Food log
-            </p>
-            <div className="mt-3 grid gap-2">
-              {state.nutrition.entries.length ? (
-                state.nutrition.entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--dim)]">
-                          {entry.meal}
-                        </p>
-                        <h3 className="mt-1 text-xl font-black tracking-[-0.04em] text-[color:var(--foreground)]">
-                          {entry.name}
-                        </h3>
-                        <p className="text-sm text-[color:var(--muted)]">{entry.portion}</p>
-                      </div>
-                      <div className="rounded-[16px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(132,181,109,0.12)] px-3 py-2 text-right">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--green)]">
-                          Calories
-                        </p>
-                        <p className="text-xl font-black text-[color:var(--foreground)]">{entry.calories}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-                      {valueChip({ title: "Protein", value: `${entry.protein} g`, tone: "green" })}
-                      {valueChip({ title: "Carbs", value: `${entry.carbs} g`, tone: "blue" })}
-                      {valueChip({ title: "Fat", value: `${entry.fat} g`, tone: "gold" })}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-[20px] border border-dashed border-[color:rgba(245,236,216,0.18)] bg-[rgba(24,25,18,0.86)] p-6 text-center">
-                  <BowlFood size={32} weight="bold" className="mx-auto text-[color:var(--dim)]" />
-                  <p className="mt-3 text-base font-bold text-[color:var(--foreground)]">No meals logged yet.</p>
-                  <p className="mt-1 text-sm text-[color:var(--muted)]">
-                    Add breakfast, lunch, or a post-training snack to start the macro log.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-  });
-}
-
-function CoachTab({
-  state,
-  scores,
-  onSend,
-  busy,
-}: {
-  state: AppState;
-  scores: ReturnType<typeof getAssessmentScores>;
-  onSend: (prompt: string) => void;
-  busy: boolean;
-}) {
-  return paperSection({
-    eyebrow: "AI Coach",
-    title: "Ask for direction, then keep the answer grounded in the data.",
-    summary:
-      "The coach returns a short, actionable response and can adjust the roadmap without turning into generic advice.",
-    children: (
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="paper-card-soft p-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">Prompt library</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {coachPromptLibrary.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                onClick={() => onSend(prompt)}
-                className="paper-chip rounded-full px-3 py-2 text-xs font-black transition hover:border-[color:rgba(210,160,74,0.34)] hover:text-[color:var(--foreground)]"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 rounded-[20px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[color:var(--dim)]">Active gap</p>
-            <p className="mt-2 text-xl font-black tracking-[-0.04em] text-[color:var(--foreground)]">
-              {assessmentLabels[scores.gaps[0]?.metric ?? "passing"]}
-            </p>
-            <p className="mt-1 text-sm text-[color:var(--muted)]">
-              The coach can lean on the biggest gap, the current week, or the meal log depending on what you ask.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-3">
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-              Chat
-            </p>
-            <div className="mt-3 flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
-              {state.coach.messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "max-w-[85%] rounded-[20px] border px-4 py-3 text-sm leading-6",
-                    message.role === "user"
-                      ? "ml-auto border-[color:rgba(132,181,109,0.35)] bg-[rgba(132,181,109,0.16)] text-[color:var(--foreground)]"
-                      : "border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] text-[color:var(--muted)]",
-                  )}
-                >
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">
-                    {message.role === "user" ? "You" : "VarFoot"}
-                  </p>
-                  <p className="mt-1">{message.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <CoachComposer
-            defaultPrompt={state.coach.draft || coachPromptLibrary[0]}
-            onSend={onSend}
-            busy={busy}
-          />
-        </div>
-      </div>
-    ),
-  });
-}
-
-function LibraryTab({
-  state,
-  onToggleDrill,
-}: {
-  state: AppState;
-  onToggleDrill: (name: string) => void;
-}) {
-  return paperSection({
-    eyebrow: "Library",
-    title: "Keep the useful drills, keep the library small.",
-    summary: "The drill library doubles as content for the coach and the plan detail screens.",
-    children: (
-      <div className="grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
-        <div className="grid gap-3">
-          {drillLibrary.map((drill) => (
-            <div key={drill.name} className="rounded-[22px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--dim)]">{drill.focus}</p>
-                  <h3 className="mt-1 text-2xl font-black tracking-[-0.05em] text-[color:var(--foreground)]">
-                    {drill.name}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onToggleDrill(drill.name)}
-                  className={cn(
-                    "rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em]",
-                    state.library.savedDrills.includes(drill.name) ? "paper-chip-active" : "paper-chip",
-                  )}
-                >
-                  {state.library.savedDrills.includes(drill.name) ? "Saved" : "Save"}
-                </button>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{drill.instructions}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {valueChip({ title: "Time", value: drill.duration, tone: "blue" })}
-                {valueChip({ title: "Target", value: drill.target, tone: "gold" })}
-                {valueChip({ title: "Equipment", value: drill.equipment, tone: "neutral" })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid gap-3">
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
-              Saved drills
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {state.library.savedDrills.map((drill) => (
-                <span key={drill} className="paper-chip rounded-full px-3 py-2 text-xs font-black">
-                  {drill}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Screen map</p>
-            <div className="mt-3 grid gap-2">
-              {screenMap.map((screen) => (
-                <div
-                  key={screen}
-                  className="rounded-[16px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] px-3 py-2 text-sm font-bold text-[color:var(--foreground)]"
-                >
-                  {screen}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-  });
-}
-
-function ProfileTab({
-  state,
-  scores,
-  onAssessmentChange,
-  onLoadDemo,
-  onReset,
-  localMode,
-}: {
-  state: AppState;
-  scores: ReturnType<typeof getAssessmentScores>;
-  onAssessmentChange: (key: keyof AppState["assessment"], value: string) => void;
-  onLoadDemo: () => void;
-  onReset: () => void;
-  localMode: boolean;
-}) {
-  return paperSection({
-    eyebrow: "Account + system states",
-    title: "Profile, persistence, and the demo stack.",
-    summary:
-      "This screen mirrors the handoff’s account and system states while keeping the implementation lightweight enough for the hackathon demo.",
-    children: (
-      <div className="grid gap-4 xl:grid-cols-[1fr_0.92fr]">
-        <div className="grid gap-3">
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">Profile</p>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <MetricField
-                label="Name"
-                value={state.assessment.name}
-                onChange={(value) => onAssessmentChange("name", value)}
-              />
-              <MetricField
-                label="School"
-                value={state.assessment.school}
-                onChange={(value) => onAssessmentChange("school", value)}
-              />
-              <MetricField
-                label="Position"
-                value={state.assessment.position}
-                onChange={(value) => onAssessmentChange("position", value)}
-              />
-              <MetricField
-                label="Goal"
-                value={state.assessment.seasonGoal}
-                onChange={(value) => onAssessmentChange("seasonGoal", value)}
-              />
-            </div>
-          </div>
-
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Persistence</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {valueChip({ title: "Local cache", value: "On", tone: "green" })}
-              {valueChip({ title: "Supabase", value: localMode ? "Not configured" : "Ready", tone: localMode ? "red" : "green" })}
-              {valueChip({ title: "Plan data", value: state.plan.weeks.length ? "Saved" : "Empty", tone: "blue" })}
-            </div>
-          </div>
-
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">System state</p>
-            <div className="mt-3 grid gap-2">
-              <div className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4">
-                <p className="text-sm font-bold text-[color:var(--foreground)]">
-                  {state.onboardingComplete ? "Onboarding complete." : "Onboarding still open."}
-                </p>
-                <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  The app can still be used in demo mode even without Supabase keys.
-                </p>
-              </div>
-              <div className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4">
-                <p className="text-sm font-bold text-[color:var(--foreground)]">
-                  Current readiness: {Math.round(scores.overallScore)}%
-                </p>
-                <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Top gap: {assessmentLabels[scores.gaps[0]?.metric ?? "passing"]}.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-3">
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">Actions</p>
-            <div className="mt-3 grid gap-2">
-              <button
-                type="button"
-                onClick={onLoadDemo}
-                className="paper-button-primary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em]"
-              >
-                Load demo athlete
-              </button>
-              <button
-                type="button"
-                onClick={onReset}
-                className="paper-button-secondary inline-flex h-11 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em]"
-              >
-                Reset browser data
-              </button>
-            </div>
-          </div>
-
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Benchmark notes</p>
-            <div className="mt-3 grid gap-2">
-              {Object.entries(assessmentBenchmarks).slice(0, 4).map(([key, benchmark]) => (
-                <div
-                  key={key}
-                  className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] p-4"
-                >
-                  <p className="text-sm font-bold text-[color:var(--foreground)]">{benchmark.label}</p>
-                  <p className="mt-1 text-sm text-[color:var(--muted)]">
-                    Freshman {benchmark.freshman}
-                    {benchmark.unit === "%" ? "%" : ` ${benchmark.unit}`} · JV {benchmark.jv}
-                    {benchmark.unit === "%" ? "%" : ` ${benchmark.unit}`} · Varsity {benchmark.varsity}
-                    {benchmark.unit === "%" ? "%" : ` ${benchmark.unit}`}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="paper-card-soft p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--dim)]">Screen families</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {screenMap.map((screen) => (
-                <div
-                  key={screen}
-                  className="rounded-[16px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] px-3 py-2 text-xs font-bold text-[color:var(--foreground)]"
-                >
-                  {screen}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-  });
-}
-
-export default App;
