@@ -12,15 +12,17 @@ import {
   Timer,
   UserCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { Session } from "@supabase/supabase-js";
 import {
   addFoodEntry,
   assessmentBenchmarks,
   assessmentLabels,
   coachPromptLibrary,
+  clearState,
   createBlankState,
   createDemoState,
   drillLibrary,
@@ -37,7 +39,12 @@ import {
   type MetricKey,
   type TabKey,
 } from "@/lib/varfoot";
-import { hasSupabaseEnv } from "@/lib/supabase";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  loadRemoteState,
+  upsertRemoteState,
+  upsertRemoteProfile,
+} from "@/lib/varfoot-sync";
 import { cn } from "@/lib/utils";
 
 const tabs: Array<{
@@ -410,23 +417,311 @@ function MetricField({
   );
 }
 
-function App() {
-  const [state, setState] = useState<AppState>(() =>
-    typeof window !== "undefined" ? loadState() : createBlankState(),
+const authSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+
+type AuthForm = z.infer<typeof authSchema>;
+type AuthMode = "sign-in" | "sign-up";
+
+function AuthGate({
+  loading,
+  error,
+  onSubmit,
+  onLocalDemo,
+}: {
+  loading: boolean;
+  error: string | null;
+  onSubmit: (mode: AuthMode, email: string, password: string) => Promise<void>;
+  onLocalDemo?: () => void;
+}) {
+  const [mode, setMode] = useState<AuthMode>("sign-in");
+  const form = useForm<AuthForm>({
+    resolver: zodResolver(authSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  return (
+    <div className="relative min-h-dvh overflow-hidden">
+      <div className="noise-layer" />
+
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col justify-center gap-6 px-4 py-6 md:px-6 lg:px-8">
+        <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="paper-shell rounded-[30px] p-5 md:p-7">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[color:var(--green)]">
+              VarFoot account
+            </p>
+            <h1 className="mt-2 max-w-3xl text-4xl font-black tracking-[-0.07em] text-[color:var(--foreground)] md:text-6xl">
+              One login. One athlete state. One roadmap that keeps its memory.
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-[color:var(--muted)] md:text-[15px]">
+              Sign in with your Supabase account to sync assessment data, meal logs, coach messages, and the
+              week-by-week training plan across devices.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {valueChip({ title: "Sync", value: "Supabase", tone: "green" })}
+              {valueChip({ title: "Fallback", value: "Local cache", tone: "blue" })}
+              {valueChip({ title: "Auth", value: "Email + password", tone: "gold" })}
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {screenMap.slice(0, 6).map((screen) => (
+                <div
+                  key={screen}
+                  className="rounded-[18px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(36,37,28,0.96)] px-3 py-2 text-sm font-bold text-[color:var(--foreground)]"
+                >
+                  {screen}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="paper-shell rounded-[30px] p-5 md:p-6">
+            <div className="paper-card-soft p-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[color:var(--green)]">
+                {mode === "sign-in" ? "Sign in" : "Create account"}
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[color:var(--foreground)]">
+                {mode === "sign-in" ? "Welcome back." : "Start your VarFoot account."}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                {mode === "sign-in"
+                  ? "Use the Supabase account you already created. Your athlete state will load after auth."
+                  : "We’ll create a new auth user and store the app state under that account."}
+              </p>
+
+              <form
+                className="mt-5 grid gap-4"
+                onSubmit={form.handleSubmit(async (values) => {
+                  await onSubmit(mode, values.email.trim().toLowerCase(), values.password);
+                })}
+              >
+                <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
+                  Email
+                  <input
+                    className="paper-field h-12 px-4 text-sm font-semibold tracking-[-0.01em]"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    {...form.register("email")}
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-bold text-[color:var(--muted)]">
+                  Password
+                  <input
+                    className="paper-field h-12 px-4 text-sm font-semibold tracking-[-0.01em]"
+                    type="password"
+                    placeholder="Minimum 8 characters"
+                    autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+                    {...form.register("password")}
+                  />
+                </label>
+
+                {error ? (
+                  <div className="rounded-[18px] border border-[color:rgba(215,121,109,0.32)] bg-[rgba(215,121,109,0.12)] px-4 py-3 text-sm text-[color:var(--red)]">
+                    {error}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="paper-button-primary inline-flex h-12 items-center justify-center rounded-[16px] px-4 text-sm font-black tracking-[-0.02em] transition duration-200 disabled:cursor-wait disabled:opacity-70"
+                >
+                  {loading ? "Checking account..." : mode === "sign-in" ? "Sign in" : "Create account"}
+                </button>
+              </form>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode((current) => (current === "sign-in" ? "sign-up" : "sign-in"))}
+                  className="paper-chip rounded-full px-3 py-2 text-xs font-black"
+                >
+                  {mode === "sign-in" ? "Need an account?" : "Already have one?"}
+                </button>
+                {onLocalDemo ? (
+                  <button
+                    type="button"
+                    onClick={onLocalDemo}
+                    className="paper-chip rounded-full px-3 py-2 text-xs font-black"
+                  >
+                    Open local demo
+                  </button>
+                ) : null}
+              </div>
+
+              <p className="mt-4 text-xs leading-5 text-[color:var(--dim)]">
+                If the auth settings in Supabase require email confirmation, check your inbox before coming back.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   );
+}
+
+function App() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const localMode = !supabase;
+  const [state, setState] = useState<AppState>(() => (localMode ? loadState() : createBlankState()));
   const [planLoading, setPlanLoading] = useState(false);
   const [coachLoading, setCoachLoading] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(!localMode);
+  const [bootstrapLoading, setBootstrapLoading] = useState(!localMode);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<"local" | "loading" | "saving" | "synced" | "error" | "signed-out">(
+    localMode ? "local" : "loading",
+  );
+  const saveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    saveState(state);
-  }, [state]);
+    if (!supabase) {
+      return;
+    }
+
+    let active = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) {
+        return;
+      }
+
+      setSession(data.session);
+      setAuthLoading(false);
+      if (!data.session) {
+        setBootstrapLoading(false);
+        setSyncState("signed-out");
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) {
+        return;
+      }
+
+      setSession(nextSession);
+      setAuthLoading(false);
+      setAuthError(null);
+      if (!nextSession) {
+        setBootstrapLoading(false);
+        setSyncState("signed-out");
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase || !session) {
+      return;
+    }
+
+    const client = supabase;
+    const currentSession = session;
+    let cancelled = false;
+
+    async function bootstrap() {
+      setBootstrapLoading(true);
+      setSyncState("loading");
+
+      try {
+        await upsertRemoteProfile(client, currentSession);
+        const remoteState = await loadRemoteState(client, currentSession.user.id);
+        if (cancelled) {
+          return;
+        }
+
+        setState(remoteState ?? loadState());
+        setSyncState("synced");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setAuthError(error instanceof Error ? error.message : "Unable to load your cloud state.");
+        setState(loadState());
+        setSyncState("error");
+      } finally {
+        if (!cancelled) {
+          setBootstrapLoading(false);
+        }
+      }
+    }
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, supabase]);
+
+  useEffect(() => {
+    if (localMode) {
+      saveState(state);
+      return;
+    }
+
+    if (!session || bootstrapLoading) {
+      return;
+    }
+
+    const client = supabase;
+    const currentSession = session;
+
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          setAuthError(null);
+          setSyncState("saving");
+          await upsertRemoteState(client, currentSession, state);
+          saveState(state);
+          setSyncState("synced");
+        } catch (error) {
+          setAuthError(error instanceof Error ? error.message : "Unable to save to Supabase.");
+          saveState(state);
+          setSyncState("error");
+        }
+      })();
+    }, 300);
+
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [bootstrapLoading, localMode, session, state, supabase]);
 
   const scores = useMemo(() => getAssessmentScores(state.assessment), [state.assessment]);
   const nutritionTotals = useMemo(() => getNutritionTotals(state.nutrition.entries), [state.nutrition.entries]);
   const selectedWeek = state.plan.weeks.find((week) => week.week === state.selectedWeek) ?? state.plan.weeks[0];
   const topGaps = scores.gaps.slice(0, 3);
   const currentTime = new Date();
-  const localMode = !hasSupabaseEnv();
+  const syncLabel =
+    syncState === "local"
+      ? "Local cache"
+      : syncState === "saving"
+        ? "Saving"
+        : syncState === "error"
+          ? "Sync issue"
+          : syncState === "signed-out"
+            ? "Signed out"
+            : "Supabase";
 
   function patchState(updater: (prev: AppState) => AppState) {
     setState(updater);
@@ -570,9 +865,47 @@ function App() {
 
   function resetState() {
     setState(createBlankState());
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("varfoot.app-state");
+    clearState();
+  }
+
+  async function handleAuthSubmit(mode: AuthMode, email: string, password: string) {
+    if (!supabase) {
+      return;
     }
+
+    setAuthError(null);
+    setAuthLoading(true);
+
+    const result =
+      mode === "sign-in"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+
+    if (result.error) {
+      setAuthError(result.error.message);
+      setAuthLoading(false);
+      return;
+    }
+
+    if (mode === "sign-up" && !result.data.session) {
+      setAuthError("Account created. Check your inbox to confirm your email, then sign back in.");
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleSignOut() {
+    if (!supabase) {
+      return;
+    }
+
+    setAuthError(null);
+    setAuthLoading(true);
+    await supabase.auth.signOut();
+    clearState();
+    setSession(null);
+    setBootstrapLoading(false);
+    setSyncState("signed-out");
+    setAuthLoading(false);
   }
 
   const fuelStatus =
@@ -583,6 +916,35 @@ function App() {
         : "red";
 
   const nextSession = selectedWeek?.sessions.find((session) => session.status === "today") ?? selectedWeek?.sessions[0];
+
+  if (!localMode && authLoading) {
+    return <AuthGate loading error={authError} onSubmit={handleAuthSubmit} />;
+  }
+
+  if (!localMode && !session) {
+    return <AuthGate loading={false} error={authError} onSubmit={handleAuthSubmit} onLocalDemo={undefined} />;
+  }
+
+  if (!localMode && bootstrapLoading) {
+    return (
+      <div className="relative min-h-dvh overflow-hidden">
+        <div className="noise-layer" />
+        <div className="relative mx-auto flex min-h-dvh w-full max-w-4xl items-center justify-center px-4 py-6">
+          <section className="paper-shell w-full rounded-[30px] p-6 text-center md:p-8">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[color:var(--green)]">
+              Loading VarFoot
+            </p>
+            <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] text-[color:var(--foreground)]">
+              Pulling your athlete state from Supabase.
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
+              We’re restoring your profile, plan, nutrition log, and coach history now.
+            </p>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-dvh overflow-hidden">
@@ -617,17 +979,23 @@ function App() {
               })}
               {valueChip({
                 title: "Sync mode",
-                value: localMode ? "Demo" : "Supabase",
-                tone: localMode ? "red" : "green",
+                value: localMode ? "Demo" : syncLabel,
+                tone: localMode ? "red" : syncState === "error" ? "red" : "green",
               })}
               {valueChip({
                 title: "Last saved",
-                value: "Local cache",
-                tone: "blue",
+                value: syncLabel,
+                tone: syncState === "error" ? "red" : "blue",
               })}
             </div>
           </div>
         </header>
+
+        {!localMode && authError ? (
+          <div className="rounded-[20px] border border-[color:rgba(215,121,109,0.32)] bg-[rgba(215,121,109,0.12)] px-4 py-3 text-sm text-[color:var(--red)]">
+            {authError}
+          </div>
+        ) : null}
 
         <main className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="paper-shell rounded-[28px] p-4 md:p-5 xl:sticky xl:top-6 xl:h-fit">
@@ -649,6 +1017,15 @@ function App() {
                   </p>
                 </div>
               </div>
+              {!localMode ? (
+                <button
+                  type="button"
+                  onClick={() => void handleSignOut()}
+                  className="mt-4 w-full rounded-[16px] border border-[color:rgba(245,236,216,0.12)] bg-[rgba(24,25,18,0.86)] px-4 py-3 text-sm font-black tracking-[-0.02em] text-[color:var(--foreground)] transition hover:border-[color:rgba(215,121,109,0.36)] hover:text-[color:var(--red)]"
+                >
+                  Sign out
+                </button>
+              ) : null}
 
               <div className="mt-4 flex items-center gap-4">
                 <Gauge score={Math.round(scores.overallScore)} />

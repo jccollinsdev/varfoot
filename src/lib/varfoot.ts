@@ -833,7 +833,7 @@ const planWeekSchema = z.object({
   sessions: z.array(planSessionSchema),
 });
 
-const appStateSchema = z.object({
+export const appStateSchema = z.object({
   onboardingComplete: z.boolean(),
   activeTab: z.enum(["today", "assess", "plan", "train", "fuel", "coach", "library", "profile"]),
   selectedWeek: z.number(),
@@ -927,4 +927,3 @@ export function formatDuration(seconds: number) {
 export function getScreenHint() {
   return `${screenMap.length} screen families mapped from the handoff`;
 }
-
