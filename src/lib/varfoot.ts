@@ -282,21 +282,21 @@ export const coachPromptLibrary = [
 ] as const;
 
 export const blankAssessment: AssessmentState = {
-  name: "Sansar",
-  age: "16",
-  school: "Lexington High",
-  position: "Winger",
-  seasonGoal: "Make varsity and stay healthy through tryouts",
-  height: "5'8\"",
-  weight: "154 lb",
-  pushups: 30,
-  plankSeconds: 150,
-  wallSitSeconds: 120,
-  passing: 68,
-  shooting: 59,
-  dribbling: 62,
-  firstTouch: 64,
-  speed: 67,
+  name: "",
+  age: "",
+  school: "",
+  position: "",
+  seasonGoal: "",
+  height: "",
+  weight: "",
+  pushups: 0,
+  plankSeconds: 0,
+  wallSitSeconds: 0,
+  passing: 0,
+  shooting: 0,
+  dribbling: 0,
+  firstTouch: 0,
+  speed: 0,
 };
 
 export const demoAssessment: AssessmentState = {
