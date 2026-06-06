@@ -1,0 +1,16 @@
+{
+  "name": "VarFoot",
+  "short_name": "VarFoot",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0d0a",
+  "theme_color": "#171814",
+  "icons": [
+    {
+      "src": "/varfoot-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
+

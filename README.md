@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VarFoot
 
-## Getting Started
+VarFoot is a soccer-specific PWA for JV, freshman, and club players who want a clearer roadmap to varsity.
 
-First, run the development server:
+It includes:
+
+- onboarding assessment flow
+- freshman / JV / varsity benchmark comparison
+- week-by-week training plan generation
+- technical, physical, and nutrition tracking
+- food logging with macro math
+- AI coach chat
+- local persistence with Supabase/Gemini integration points ready for real keys
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## Environment variables
 
-To learn more about Next.js, take a look at the following resources:
+Copy `.env.example` to `.env.local` when you want to wire real services:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The app runs in demo mode without these values.
 
-## Deploy on Vercel
+## Source materials
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `docs/BUILD_PLAN.md`
+- `/Users/sansarkarki/Downloads/varfoot_prd_icp.md`
+- `/Users/sansarkarki/Downloads/VarFoot_Final_Apple_Dark_Paper_All_Screens.html`
+- `/Users/sansarkarki/Downloads/App for Hackathon - Google Docs.pdf`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+
+- The PDF source currently provides the physical assessment prompts and target references.
+- The handoff HTML maps the larger 68-screen IA and design language.
+- The app stores state in browser localStorage until Supabase is configured.
