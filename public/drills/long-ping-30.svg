@@ -1,0 +1,39 @@
+<svg width="360" height="240" viewBox="0 0 360 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="long ping 30 diagram">
+  <defs>
+  <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#39ff73" />
+  </marker>
+  <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#ff9d4d" />
+  </marker>
+  <marker id="arrowMute" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#9aa1a9" />
+  </marker></defs>
+  <rect x="0.5" y="0.5" width="359" height="239" rx="16" fill="#101216" stroke="#262a30" />
+  <rect x="14" y="14" width="332" height="184" rx="12" fill="#15181c" stroke="#262a30" stroke-width="1" />
+  <g>
+      <rect x="250" y="78" width="64" height="50" fill="#39ff73" fill-opacity="0.08" stroke="#39ff73" stroke-width="1.6" stroke-dasharray="5 4" rx="3" />
+      <text x="282" y="107" text-anchor="middle" fill="#39ff73" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="800">5x5 STEPS</text>
+      <g>
+    <circle cx="64" cy="147" r="6.4" fill="#c7cbd1" />
+    
+      <line x1="64" y1="152" x2="64" y2="166" stroke="#c7cbd1" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="64" y1="157" x2="71" y2="164" stroke="#c7cbd1" stroke-width="2.2" stroke-linecap="round" />
+      <line x1="64" y1="166" x2="59" y2="180" stroke="#c7cbd1" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="64" y1="166" x2="71" y2="180" stroke="#c7cbd1" stroke-width="2.4" stroke-linecap="round" />
+    <text x="64" y="192" text-anchor="middle" fill="#9aa1a9" font-family="Nunito, sans-serif" font-size="9" font-weight="800">You</text>
+  </g>
+      <g>
+    <circle cx="86" cy="176" r="6.5" fill="#c7cbd1" />
+    <path d="M82.75 174.7 l3.25 -2.9250000000000003 l3.25 2.9250000000000003 l-1.3 3.575 h-3.9 Z" fill="#101216" opacity="0.55" />
+  </g>
+      <path d="M88 172 Q 200 18 282 84" stroke="#39ff73" stroke-width="2.2" fill="none" stroke-dasharray="5 4" marker-end="url(#arrowGreen)" />
+      <g>
+    <line x1="52" y1="200" x2="250" y2="200" stroke="#4a4f57" stroke-width="1.4" stroke-dasharray="2 3" />
+    <line x1="52" y1="196" x2="52" y2="204" stroke="#4a4f57" stroke-width="1.4" />
+    <line x1="250" y1="196" x2="250" y2="204" stroke="#4a4f57" stroke-width="1.4" />
+    <text x="151" y="192" text-anchor="middle" fill="#9aa1a9" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="600">30 big steps</text>
+  </g>
+    </g>
+  <text x="180" y="220" text-anchor="middle" fill="#c7cbd1" font-family="Nunito, -apple-system, sans-serif" font-size="12" font-weight="800" letter-spacing="0.04em">LONG PING 30</text>
+</svg>

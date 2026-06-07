@@ -1,7 +1,19 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="120" fill="#171814"/>
-  <path d="M152 358V148H220C270 148 303 169 303 206C303 233 287 250 260 258L315 358H255L206 268H200V358H152Z" fill="#F5ECD8"/>
-  <path d="M323 358L371 148H428L362 358H323Z" fill="#84B56D"/>
-  <circle cx="364" cy="122" r="24" fill="#D2A04A"/>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VarFoot">
+  <!-- V-cleat mark: left arm is a plain line, right arm is a tapered cleat with studs.
+       Path data ported verbatim from design_handoff_varfoot/prototype/vf-logo.jsx (buildVCleat). -->
+  <defs>
+    <linearGradient id="plate" x1="15%" y1="0%" x2="78%" y2="100%">
+      <stop offset="0%" stop-color="#16181b" />
+      <stop offset="100%" stop-color="#0c0d0f" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114.5" fill="url(#plate)" />
+  <rect x="0.5" y="0.5" width="511" height="511" rx="114" fill="none" stroke="#23272d" />
+  <g transform="translate(46.08 46.08) scale(8.7467)">
+    <path d="M11.60 12.40 L23.00 35.60" stroke="#39ff73" stroke-width="4.7" stroke-linecap="round" />
+    <path d="M20.59 34.27 L31.99 13.67 Q 34.35 10.22 35.55 11.22 Q 38.58 16.03 36.98 16.43 L25.41 36.93 Z" fill="#39ff73" stroke="#39ff73" stroke-width="1.4" stroke-linejoin="round" />
+    <path d="M29.39 29.12 L27.74 32.09 L30.93 31.91 Z" fill="#06140b" />
+    <path d="M31.67 25.00 L30.02 27.97 L33.21 27.79 Z" fill="#06140b" />
+    <path d="M33.95 20.88 L32.30 23.85 L35.49 23.67 Z" fill="#06140b" />
+  </g>
 </svg>
-

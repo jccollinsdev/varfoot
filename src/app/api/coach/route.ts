@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createBlankState } from "@/lib/varfoot";
-import { generateCoachPayload } from "@/lib/varfoot-api";
+
+import { buildCoachContext } from "@/lib/coachContext";
 import { askGemini } from "@/lib/gemini";
+import { appStateSchema, createBlankState } from "@/lib/varfoot";
 
 const bodySchema = z.object({
   prompt: z.string().min(1).max(240),
-  state: z.any().optional(),
+  state: z.unknown().optional(),
 });
 
 export async function POST(request: Request) {
@@ -14,26 +15,34 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(json);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Prompt is required." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
   }
 
-  const state = parsed.data.state ?? createBlankState();
-  const fallback = generateCoachPayload(parsed.data.prompt, state);
-  const geminiText = await askGemini(
+  const stateResult = appStateSchema.safeParse(parsed.data.state);
+  const state = stateResult.success ? stateResult.data : createBlankState();
+  const context = buildCoachContext(state);
+
+  const result = await askGemini(
     [
-      "You are VarFoot, a direct but encouraging soccer coach for a teenage player.",
-      `Athlete: ${state.assessment.name}, position ${state.assessment.position}, goal ${state.assessment.seasonGoal}.`,
-      `Assessment: passing ${state.assessment.passing}, shooting ${state.assessment.shooting}, dribbling ${state.assessment.dribbling}, first touch ${state.assessment.firstTouch}, speed ${state.assessment.speed}, pushups ${state.assessment.pushups}, plank ${state.assessment.plankSeconds}, wall sit ${state.assessment.wallSitSeconds}.`,
-      `Question: ${parsed.data.prompt}`,
-      "Return a short, specific answer with at most three lines. Mention the highest-priority adjustment first.",
+      "You are the VarFoot AI coach — direct, specific, and encouraging, talking to a teenage soccer player who wants to make varsity.",
+      "Use ONLY the player data below. Never invent stats, never give medical advice, never guess at information that isn't provided.",
+      "",
+      context,
+      "",
+      `Player's question: ${parsed.data.prompt}`,
+      "",
+      "Reply in at most four short lines. Lead with the single highest-priority adjustment given their weakest area and largest gaps. Be concrete (use the actual numbers above) and end with one specific next action.",
     ].join("\n"),
   );
 
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 502 });
+  }
+
   return NextResponse.json({
-    ...fallback,
-    answer: geminiText ? geminiText.split(/\n+/).map((line) => line.trim()).filter(Boolean) : fallback.answer,
+    answer: result.text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean),
   });
 }

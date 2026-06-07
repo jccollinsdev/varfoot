@@ -1,0 +1,23 @@
+<svg width="360" height="240" viewBox="0 0 360 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="hydration checkin diagram">
+  <defs>
+  <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#39ff73" />
+  </marker>
+  <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#ff9d4d" />
+  </marker>
+  <marker id="arrowMute" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#9aa1a9" />
+  </marker></defs>
+  <rect x="0.5" y="0.5" width="359" height="239" rx="16" fill="#101216" stroke="#262a30" />
+  <rect x="14" y="14" width="332" height="184" rx="12" fill="#15181c" stroke="#262a30" stroke-width="1" />
+  <g>
+      <circle cx="180" cy="105" r="34" fill="#101216" stroke="#262a30" stroke-width="1.4" />
+      <path d="M180 83 C 164 103 164 119 180 119 C 196 119 196 103 180 83 Z" fill="rgba(57,255,115,0.22)" stroke="#39ff73" stroke-width="2.2" />
+      <g>
+    <rect x="126" y="155" width="122.8" height="19" rx="9.5" fill="#39ff73" fill-opacity="0.14" stroke="#39ff73" stroke-opacity="0.5" />
+    <text x="187.4" y="169" text-anchor="middle" fill="#39ff73" font-family="Nunito, sans-serif" font-size="10" font-weight="800" letter-spacing="0.03em">DAYS ON TARGET / 7</text>
+  </g>
+    </g>
+  <text x="180" y="220" text-anchor="middle" fill="#c7cbd1" font-family="Nunito, -apple-system, sans-serif" font-size="12" font-weight="800" letter-spacing="0.04em">DAYS ON TARGET / 7</text>
+</svg>

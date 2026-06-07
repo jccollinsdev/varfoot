@@ -1,5 +1,16 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="64" height="64" rx="16" fill="#171814"/>
-  <path d="M19 44V19H27C33 19 37 21.5 37 26C37 29.5 35 31.5 31.5 32.5L39 44H32L26 34H24.5V44H19Z" fill="#F5ECD8"/>
-  <path d="M41 44L47 19H54L46 44H41Z" fill="#84B56D"/>
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VarFoot">
+  <defs>
+    <linearGradient id="plate" x1="15%" y1="0%" x2="78%" y2="100%">
+      <stop offset="0%" stop-color="#16181b" />
+      <stop offset="100%" stop-color="#0c0d0f" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14.3" fill="url(#plate)" />
+  <g transform="translate(5.76 5.76) scale(1.0933)">
+    <path d="M11.60 12.40 L23.00 35.60" stroke="#39ff73" stroke-width="4.7" stroke-linecap="round" />
+    <path d="M20.59 34.27 L31.99 13.67 Q 34.35 10.22 35.55 11.22 Q 38.58 16.03 36.98 16.43 L25.41 36.93 Z" fill="#39ff73" stroke="#39ff73" stroke-width="1.4" stroke-linejoin="round" />
+    <path d="M29.39 29.12 L27.74 32.09 L30.93 31.91 Z" fill="#06140b" />
+    <path d="M31.67 25.00 L30.02 27.97 L33.21 27.79 Z" fill="#06140b" />
+    <path d="M33.95 20.88 L32.30 23.85 L35.49 23.67 Z" fill="#06140b" />
+  </g>
 </svg>

@@ -1,0 +1,57 @@
+<svg width="360" height="240" viewBox="0 0 360 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="header clearance diagram">
+  <defs>
+  <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#39ff73" />
+  </marker>
+  <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#ff9d4d" />
+  </marker>
+  <marker id="arrowMute" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 Z" fill="#9aa1a9" />
+  </marker></defs>
+  <rect x="0.5" y="0.5" width="359" height="239" rx="16" fill="#101216" stroke="#262a30" />
+  <rect x="14" y="14" width="332" height="184" rx="12" fill="#15181c" stroke="#262a30" stroke-width="1" />
+  <g>
+      <g>
+    <rect x="56" y="92" width="50" height="56" fill="none" stroke="#c7cbd1" stroke-width="2.4" />
+    <line x1="66" y1="92" x2="66" y2="148" stroke="#4a4f57" stroke-width="1" /><line x1="76" y1="92" x2="76" y2="148" stroke="#4a4f57" stroke-width="1" /><line x1="86" y1="92" x2="86" y2="148" stroke="#4a4f57" stroke-width="1" /><line x1="96" y1="92" x2="96" y2="148" stroke="#4a4f57" stroke-width="1" /><line x1="56" y1="106" x2="106" y2="106" stroke="#4a4f57" stroke-width="1" /><line x1="56" y1="120" x2="106" y2="120" stroke="#4a4f57" stroke-width="1" /><line x1="56" y1="134" x2="106" y2="134" stroke="#4a4f57" stroke-width="1" />
+    <line x1="56" y1="148" x2="106" y2="148" stroke="#c7cbd1" stroke-width="2.4" />
+  </g>
+      <g>
+    <circle cx="268" cy="147" r="6.4" fill="#ff9d4d" />
+    
+      <line x1="268" y1="152" x2="268" y2="166" stroke="#ff9d4d" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="268" y1="157" x2="261" y2="164" stroke="#ff9d4d" stroke-width="2.2" stroke-linecap="round" />
+      <line x1="268" y1="166" x2="263" y2="180" stroke="#ff9d4d" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="268" y1="166" x2="261" y2="180" stroke="#ff9d4d" stroke-width="2.4" stroke-linecap="round" />
+    <text x="268" y="192" text-anchor="middle" fill="#9aa1a9" font-family="Nunito, sans-serif" font-size="9" font-weight="800">Partner</text>
+  </g>
+      <g>
+    <circle cx="250" cy="110" r="6.5" fill="#c7cbd1" />
+    <path d="M246.75 108.7 l3.25 -2.9250000000000003 l3.25 2.9250000000000003 l-1.3 3.575 h-3.9 Z" fill="#101216" opacity="0.55" />
+  </g>
+      <path d="M254 164 Q 228 96 208 118" stroke="#ff9d4d" stroke-width="2" fill="none" stroke-dasharray="4 4" marker-end="url(#arrowAmber)" />
+      <g>
+    <circle cx="200" cy="129" r="6.4" fill="#c7cbd1" />
+    
+      <line x1="200" y1="134" x2="200" y2="146" stroke="#c7cbd1" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="200" y1="138" x2="191" y2="133" stroke="#c7cbd1" stroke-width="2.2" stroke-linecap="round" />
+      <line x1="200" y1="138" x2="207" y2="134" stroke="#c7cbd1" stroke-width="2.2" stroke-linecap="round" />
+      <line x1="200" y1="146" x2="194" y2="156" stroke="#c7cbd1" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="200" y1="146" x2="206" y2="156" stroke="#c7cbd1" stroke-width="2.4" stroke-linecap="round" />
+    <text x="200" y="174" text-anchor="middle" fill="#9aa1a9" font-family="Nunito, sans-serif" font-size="9" font-weight="800">You</text>
+  </g>
+      <path d="M196 122 Q 170 100 130 92" stroke="#39ff73" stroke-width="2.2" fill="none" marker-end="url(#arrowGreen)" />
+      <g>
+    <line x1="70" y1="200" x2="200" y2="200" stroke="#4a4f57" stroke-width="1.4" stroke-dasharray="2 3" />
+    <line x1="70" y1="196" x2="70" y2="204" stroke="#4a4f57" stroke-width="1.4" />
+    <line x1="200" y1="196" x2="200" y2="204" stroke="#4a4f57" stroke-width="1.4" />
+    <text x="135" y="192" text-anchor="middle" fill="#9aa1a9" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="600">12 big steps</text>
+  </g>
+      <g>
+    <rect x="150" y="57" width="135" height="19" rx="9.5" fill="#39ff73" fill-opacity="0.14" stroke="#39ff73" stroke-opacity="0.5" />
+    <text x="217.5" y="71" text-anchor="middle" fill="#39ff73" font-family="Nunito, sans-serif" font-size="10" font-weight="800" letter-spacing="0.03em">FOREHEAD — EYES OPEN</text>
+  </g>
+    </g>
+  <text x="180" y="220" text-anchor="middle" fill="#c7cbd1" font-family="Nunito, -apple-system, sans-serif" font-size="12" font-weight="800" letter-spacing="0.04em">FOREHEAD — EYES OPEN</text>
+</svg>
