@@ -78,7 +78,7 @@ export type Drill = {
   source: DrillSource;
 };
 
-const img = (id: string) => `/drills/${id}.svg`;
+const img = (id: string) => `/drills/${id}.png`;
 
 export const drillCatalog: Drill[] = [
   // ───────────────────────────── 13 PDF assessment drills (verbatim targets) ─────────────────────────────
