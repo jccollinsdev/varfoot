@@ -61,11 +61,12 @@
 
 html, body {
   height: 100%;
-  overflow: hidden;
   background: var(--bg);
 }
 
 body {
+  margin: 0;
+  overflow: hidden;
   color: var(--text);
   font-family: var(--font-nunito), ui-rounded, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -78,9 +79,11 @@ body {
 .phone-shell {
   position: fixed;
   inset: 0;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  overflow: hidden;
   z-index: 1;
   background: #000;
 }
@@ -92,6 +95,7 @@ body {
   width: 100%;
   max-width: 430px;
   height: 100dvh;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg);
 }
@@ -124,10 +128,13 @@ body {
 /* ── Content area ─────────────────────────────────────────────────────────── */
 
 .content-area {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  touch-action: pan-y;
 }
 
 .content-scroll { overflow-y: auto; }
@@ -354,10 +361,12 @@ body {
 /* ── Footer action bar ────────────────────────────────────────────────────── */
 
 .vf-footer {
+  flex-shrink: 0;
   position: sticky; bottom: 0; left: 0; right: 0;
   padding: 12px 16px 16px;
   background: linear-gradient(0deg, var(--bg) 70%, transparent);
   display: flex; gap: 10px;
+  z-index: 2;
 }
 
 /* ── Animations ───────────────────────────────────────────────────────────── */
