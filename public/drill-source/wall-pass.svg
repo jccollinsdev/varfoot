@@ -1,0 +1,15 @@
+<svg width="640" height="400" viewBox="0 0 640 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="400" rx="32" fill="#0A0A0B"/>
+  <rect x="42" y="42" width="556" height="316" rx="20" fill="#111315" stroke="#2D3430" stroke-width="2"/>
+  <path d="M206 104V296" stroke="#A7FF6A" stroke-width="8" stroke-linecap="round"/>
+  <path d="M224 118L276 170L224 222" stroke="#A7FF6A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M224 176H326" stroke="#A7FF6A" stroke-width="8" stroke-linecap="round"/>
+  <path d="M224 236L276 288L224 340" stroke="#A7FF6A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <circle cx="166" cy="198" r="28" fill="#1A1F1C" stroke="#A7FF6A" stroke-width="4"/>
+  <path d="M166 184V212" stroke="#A7FF6A" stroke-width="4" stroke-linecap="round"/>
+  <path d="M152 198H180" stroke="#A7FF6A" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="354" cy="198" r="18" fill="#F5F5F6"/>
+  <path d="M388 198H468" stroke="#F5F5F6" stroke-width="5" stroke-dasharray="10 10" stroke-linecap="round"/>
+  <text x="422" y="122" fill="#F5F5F6" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Wall</text>
+  <text x="166" y="255" fill="#D4D7D5" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Athlete</text>
+</svg>

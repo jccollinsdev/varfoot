@@ -1,0 +1,14 @@
+<svg width="640" height="400" viewBox="0 0 640 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="400" rx="32" fill="#0A0A0B"/>
+  <rect x="42" y="42" width="556" height="316" rx="20" fill="#111315" stroke="#2D3430" stroke-width="2"/>
+  <path d="M126 286C182 286 184 114 240 114C296 114 298 286 354 286C410 286 412 114 468 114C508 114 518 208 562 208" stroke="#A7FF6A" stroke-width="8" stroke-linecap="round" stroke-dasharray="14 14"/>
+  <circle cx="100" cy="286" r="18" fill="#F5F5F6"/>
+  <circle cx="562" cy="208" r="18" fill="#F5F5F6"/>
+  <path d="M126 286L104 264L104 308L126 286Z" fill="#F5F5F6"/>
+  <g fill="#FFD84D">
+    <path d="M220 96L240 58L260 96H220Z"/>
+    <path d="M334 304L354 266L374 304H334Z"/>
+    <path d="M448 96L468 58L488 96H448Z"/>
+  </g>
+  <text x="320" y="348" fill="#D4D7D5" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Explode through each turn</text>
+</svg>

@@ -1,0 +1,20 @@
+<svg width="640" height="400" viewBox="0 0 640 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="400" rx="32" fill="#0A0A0B"/>
+  <rect x="42" y="42" width="556" height="316" rx="20" fill="#111315" stroke="#2D3430" stroke-width="2"/>
+  <path d="M472 116H566V286H472" stroke="#F5F5F6" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M472 116L520 152L566 116" stroke="#F5F5F6" stroke-width="4" opacity="0.6"/>
+  <path d="M472 286L520 250L566 286" stroke="#F5F5F6" stroke-width="4" opacity="0.6"/>
+  <circle cx="194" cy="200" r="18" fill="#F5F5F6"/>
+  <g stroke="#A7FF6A" stroke-width="6" stroke-linecap="round">
+    <path d="M204 190L282 162"/>
+    <path d="M204 200L294 200"/>
+    <path d="M204 210L282 238"/>
+  </g>
+  <g fill="#A7FF6A">
+    <circle cx="308" cy="152" r="7"/>
+    <circle cx="320" cy="200" r="7"/>
+    <circle cx="308" cy="248" r="7"/>
+  </g>
+  <text x="200" y="248" fill="#D4D7D5" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Strike from 3 spots</text>
+  <text x="520" y="322" fill="#F5F5F6" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Goal</text>
+</svg>

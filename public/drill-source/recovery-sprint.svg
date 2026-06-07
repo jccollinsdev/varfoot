@@ -1,0 +1,17 @@
+<svg width="640" height="400" viewBox="0 0 640 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="400" rx="32" fill="#0A0A0B"/>
+  <rect x="42" y="42" width="556" height="316" rx="20" fill="#111315" stroke="#2D3430" stroke-width="2"/>
+  <path d="M118 274H534" stroke="#2D3430" stroke-width="6" stroke-linecap="round"/>
+  <path d="M118 226H534" stroke="#2D3430" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
+  <path d="M118 178H534" stroke="#2D3430" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+  <path d="M128 274C214 274 252 154 354 154C432 154 470 226 534 226" stroke="#A7FF6A" stroke-width="9" stroke-linecap="round" stroke-dasharray="16 14"/>
+  <circle cx="118" cy="274" r="18" fill="#F5F5F6"/>
+  <path d="M534 226L508 208" stroke="#F5F5F6" stroke-width="6" stroke-linecap="round"/>
+  <path d="M534 226L506 240" stroke="#F5F5F6" stroke-width="6" stroke-linecap="round"/>
+  <g fill="#F5F5F6">
+    <rect x="154" y="132" width="8" height="26" rx="4"/>
+    <rect x="350" y="114" width="8" height="26" rx="4"/>
+    <rect x="506" y="188" width="8" height="26" rx="4"/>
+  </g>
+  <text x="320" y="340" fill="#D4D7D5" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Full recovery between sprints</text>
+</svg>

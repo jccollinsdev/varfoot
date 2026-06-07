@@ -2,819 +2,577 @@
 
 import Image from "next/image";
 import {
-  House, ClipboardText, Target, BowlFood, ChatsCircle,
-  Timer, ChartLineUp, ArrowRight, X, CaretLeft, Barbell, Lightning,
+  House, ChartLineUp, ChatsCircle, Target, CaretLeft, X,
+  ArrowRight, Check, Lock, Fire, Lightning, Plus,
+  PaperPlaneTilt, Timer, BowlFood, Barbell,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, useMemo, type ReactNode } from "react";
+import {
+  useEffect, useRef, useState, useMemo, useCallback,
+  type ReactNode,
+} from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { Session } from "@supabase/supabase-js";
 import {
-  assessmentBenchmarks, coachPromptLibrary, clearState,
-  createBlankState, createDemoState, drillLibrary, getAssessmentScores,
+  assessmentBenchmarks, drillLibrary, getAssessmentScores,
   getNutritionTotals, addFoodEntry, foodCatalog, loadState, saveState,
+  clearState, createBlankState, createDemoState,
   type AppState, type FoodEntry, type MetricKey,
 } from "@/lib/varfoot";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { createSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase";
 import { loadRemoteState, upsertRemoteState, upsertRemoteProfile } from "@/lib/varfoot-sync";
 import { cn } from "@/lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type NavTab = "home" | "stats" | "plan" | "fuel" | "coach";
-type AuthMode = "sign-in" | "sign-up";
-type Tone = "neutral" | "green" | "gold" | "red" | "blue";
-type DashSection = "benchmark" | "assess" | "library";
-type OnboardStep = 1 | 2 | 3 | 4;
+// ─── Navigation types ─────────────────────────────────────────────────────────
+type RootTab = "home" | "plan" | "track" | "coach";
+type TrackSeg = "technical" | "physical";
+type Screen =
+  | { id: "home" }
+  | { id: "plan" }
+  | { id: "track"; seg?: TrackSeg }
+  | { id: "coach" }
+  | { id: "benchmark" }
+  | { id: "session" }
+  | { id: "drill"; idx: number }
+  | { id: "recap"; drillName: string; completedCount: number }
+  | { id: "skill"; name: string }
+  | { id: "nutrition" }
+  | { id: "foodlog" }
+  | { id: "fooddetail"; entryId: string };
 
-type OnboardData = {
-  name: string; age: string; school: string; position: string; seasonGoal: string;
-  pushups: string; plankSeconds: string; wallSitSeconds: string;
-  passing: string; shooting: string; dribbling: string; firstTouch: string; speed: string;
-};
+const AUTH_TIMEOUT_MS = 6000;
+const REMOTE_TIMEOUT_MS = 8000;
 
-const NAV: Array<{ key: NavTab; label: string; Icon: React.ComponentType<{ size: number; weight: string; style?: React.CSSProperties }> }> = [
-  { key: "home", label: "Home", Icon: House as never },
-  { key: "stats", label: "Stats", Icon: ClipboardText as never },
-  { key: "plan", label: "Plan", Icon: Target as never },
-  { key: "fuel", label: "Fuel", Icon: BowlFood as never },
-  { key: "coach", label: "Coach", Icon: ChatsCircle as never },
-];
-
-const TONE: Record<Tone, string> = {
-  neutral: "border-[rgba(245,236,216,0.11)] bg-[rgba(38,39,30,0.96)] text-[color:var(--muted)]",
-  green: "border-[rgba(132,181,109,0.36)] bg-[rgba(132,181,109,0.14)] text-[color:var(--green)]",
-  gold: "border-[rgba(210,160,74,0.4)] bg-[rgba(210,160,74,0.13)] text-[color:var(--gold)]",
-  red: "border-[rgba(215,121,109,0.34)] bg-[rgba(215,121,109,0.1)] text-[color:var(--red)]",
-  blue: "border-[rgba(134,178,199,0.32)] bg-[rgba(134,178,199,0.1)] text-[color:var(--blue)]",
-};
-
-// ─── Utility ──────────────────────────────────────────────────────────────────
-function normMetric(metric: MetricKey, value: number): number {
-  const b = assessmentBenchmarks[metric];
-  if (b.higherIsBetter === false) {
-    return Math.max(0, Math.min(100, ((b.freshman - value) / (b.freshman - b.varsity)) * 100));
-  }
-  return Math.max(0, Math.min(100, ((value - b.freshman) / (b.varsity - b.freshman)) * 100));
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
+  return Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
 }
 
-// ─── Shared UI ────────────────────────────────────────────────────────────────
-function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("paper-card p-4", className)}>{children}</div>;
+const SESSION_DRILLS = drillLibrary.slice(0, 3);
+
+function getNextQueuedDrillIndex(completedDrillIndexes: number[]) {
+  return SESSION_DRILLS.findIndex((_, idx) => !completedDrillIndexes.includes(idx));
 }
-function SoftCard({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("paper-card-soft p-4", className)}>{children}</div>;
+
+function advancePlanSessions(weeks: AppState["plan"]["weeks"]) {
+  let markedTodayDone = false;
+  let promotedNext = false;
+
+  return weeks.map((week) => ({
+    ...week,
+    sessions: week.sessions.map((session) => {
+      if (!markedTodayDone && session.status === "today") {
+        markedTodayDone = true;
+        return { ...session, status: "done" as const };
+      }
+
+      if (!promotedNext && session.status === "queued") {
+        promotedNext = true;
+        return { ...session, status: "today" as const };
+      }
+
+      return session;
+    }),
+  }));
 }
-function Eyebrow({ children, tone = "dim" }: { children: ReactNode; tone?: "dim" | "green" | "gold" | "blue" }) {
+
+// ─── Design atoms ─────────────────────────────────────────────────────────────
+
+function Eyebrow({ children, tone = "muted", className = "" }: { children: ReactNode; tone?: "muted" | "green" | "gold" | "blue"; className?: string }) {
+  const color = tone === "green" ? "var(--green)" : tone === "gold" ? "var(--yellow)" : tone === "blue" ? "var(--blue)" : "var(--text-3)";
+  return <p className={cn("text-[10px] font-black uppercase tracking-[.14em]", className)} style={{ color }}>{children}</p>;
+}
+
+function Card({ children, className = "", style, onClick }: { children: ReactNode; className?: string; style?: React.CSSProperties; onClick?: () => void }) {
+  return <div className={cn("vf-card", className)} onClick={onClick} style={{ ...(onClick ? { cursor: "pointer" } : {}), ...style }}>{children}</div>;
+}
+function FlatCard({ children, className = "", style }: { children: ReactNode; className?: string; style?: React.CSSProperties }) {
+  return <div className={cn("vf-card-flat", className)} style={style}>{children}</div>;
+}
+function HiCard({ children, className = "", style, onClick }: { children: ReactNode; className?: string; style?: React.CSSProperties; onClick?: () => void }) {
+  return <div className={cn("vf-card-hi", className)} onClick={onClick} style={{ ...(onClick ? { cursor: "pointer" } : {}), ...style }}>{children}</div>;
+}
+
+function Btn({ children, onClick, disabled, className = "", ghost = false, sm = false }: { children: ReactNode; onClick?: () => void; disabled?: boolean; className?: string; ghost?: boolean; sm?: boolean }) {
+  const base = ghost ? "vf-btn-ghost" : "vf-btn";
+  return <button type="button" className={cn(base, sm && "vf-btn-sm", className)} onClick={onClick} disabled={disabled}>{children}</button>;
+}
+
+function Ring({ size, pct, sw = 7, children }: { size: number; pct: number; sw?: number; children?: ReactNode }) {
+  const r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * Math.min(1, Math.max(0, pct));
   return (
-    <p className={cn("text-[10px] font-black uppercase tracking-[0.22em]",
-      tone === "green" && "text-[color:var(--green)]",
-      tone === "gold" && "text-[color:var(--gold)]",
-      tone === "blue" && "text-[color:var(--blue)]",
-      tone === "dim" && "text-[color:var(--dim)]"
-    )}>{children}</p>
+    <div style={{ width: size, height: size, position: "relative", flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--elev)" strokeWidth={sw} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--green)" strokeWidth={sw}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
+      </svg>
+      {children && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
-function Stat({ label, value, tone = "neutral", compact }: { label: string; value: string; tone?: Tone; compact?: boolean }) {
+
+function Radar({ you, tgt, axes, size = 160 }: { you: number[]; tgt: number[]; axes: string[]; size?: number }) {
+  const cx = size / 2, cy = size / 2, maxR = size * 0.42;
+  const n = axes.length;
+  const angle = (i: number) => (i * 2 * Math.PI) / n - Math.PI / 2;
+  const pt = (val: number, i: number) => {
+    const a = angle(i), r = (val / 100) * maxR;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as [number, number];
+  };
+  const polygon = (vals: number[]) => vals.map((v, i) => pt(v, i).join(",")).join(" ");
+  const rings = [25, 50, 75, 100];
   return (
-    <div className={cn("rounded-[14px] border px-3 shadow-[2px_2px_0_rgba(0,0,0,0.16)]", TONE[tone], compact ? "py-2" : "py-2.5")}>
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-75">{label}</p>
-      <p className={cn("mt-0.5 font-black tracking-[-0.03em]", compact ? "text-[13px]" : "text-[15px]")}>{value}</p>
-    </div>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {rings.map(r => (
+        <polygon key={r} points={axes.map((_, i) => pt(r, i).join(",")).join(" ")} fill="none" stroke="var(--elev)" strokeWidth={1} />
+      ))}
+      {axes.map((_, i) => {
+        const [x, y] = pt(100, i);
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="var(--border)" strokeWidth={1} />;
+      })}
+      <polygon points={polygon(tgt)} fill="none" stroke="var(--text-3)" strokeWidth={1.5} strokeDasharray="3 3" />
+      <polygon points={polygon(you)} fill="var(--green-ghost)" stroke="var(--green)" strokeWidth={2} />
+      {axes.map((label, i) => {
+        const [x, y] = pt(115, i);
+        return <text key={i} x={x} y={y} fill="var(--text-3)" fontSize={8} fontWeight={800} textAnchor="middle" dominantBaseline="middle" fontFamily="var(--font-nunito)">{label}</text>;
+      })}
+    </svg>
   );
 }
 
 function BenchmarkBar({ metric, value }: { metric: MetricKey; value: number }) {
   const b = assessmentBenchmarks[metric];
-  const isHigher = b.higherIsBetter !== false;
-  const userPct = normMetric(metric, value);
-  const jvPct = normMetric(metric, b.jv);
-  const color = value === 0 ? "var(--dim)" : userPct >= 95 ? "var(--green)" : userPct >= jvPct ? "var(--blue)" : "var(--gold)";
-  const displayVal = value === 0 ? "—" : `${value}${b.unit === "%" ? "%" : ` ${b.unit}`}`;
+  const { freshman, jv, varsity, higherIsBetter, label, unit } = b;
+  const max = higherIsBetter ? varsity * 1.1 : freshman * 1.1;
+  const min = higherIsBetter ? 0 : varsity * 0.8;
+  const range = max - min;
+  const pctOf = (v: number) => Math.max(0, Math.min(100, ((v - min) / range) * 100));
+  const yourPct = pctOf(value);
+  const vPct = pctOf(varsity);
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold text-[color:var(--foreground)]">{b.label}</span>
-        <span className="font-mono text-[12px]" style={{ color }}>{displayVal}</span>
+    <div>
+      <div className="flex justify-between items-center mb-1.5">
+        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text)" }}>{label}</span>
+        <div className="flex items-center gap-2">
+          <span style={{ fontSize: 11, fontFamily: "var(--font-plex-mono)", color: "var(--green)", fontWeight: 700 }}>{value}{unit}</span>
+          <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 700 }}>/ {varsity}{unit}</span>
+        </div>
       </div>
-      <div className="relative h-[8px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]">
-        <div className="absolute left-0 top-0 h-full rounded-full transition-all duration-700"
-          style={{ width: `${Math.min(userPct, 100)}%`, background: `linear-gradient(90deg, ${color}99, ${color})` }} />
-        <span className="absolute top-0 h-full w-[1.5px] bg-[rgba(245,236,216,0.35)]" style={{ left: `${jvPct}%` }} />
+      <div className="vf-bar" style={{ position: "relative" }}>
+        <div className="vf-bar-fill" style={{ width: `${yourPct}%` }} />
+        <div style={{ position: "absolute", top: -1, bottom: -1, width: 2, left: `${vPct}%`, background: "rgba(255,255,255,0.4)", borderRadius: 1 }} />
       </div>
-      <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.1em] text-[color:var(--dim)]">
-        <span>F: {isHigher ? b.freshman : b.varsity}{b.unit === "%" ? "%" : b.unit}</span>
-        <span>JV: {b.jv}{b.unit === "%" ? "%" : b.unit}</span>
-        <span>V: {isHigher ? b.varsity : b.freshman}{b.unit === "%" ? "%" : b.unit}</span>
+      <div className="flex justify-between mt-1" style={{ fontSize: 9, color: "var(--text-3)", fontWeight: 700 }}>
+        <span>Freshman {freshman}{unit}</span>
+        <span>JV {jv}{unit}</span>
+        <span>Varsity {varsity}{unit}</span>
       </div>
     </div>
   );
 }
 
-function Gauge({ score, size = 160 }: { score: number; size?: number }) {
-  const safe = Math.max(0, Math.min(100, score));
-  const label = safe >= 80 ? "Varsity ready" : safe >= 60 ? "Approaching" : safe >= 40 ? "Building base" : "Early stage";
-  const color = safe >= 72 ? "var(--green)" : safe >= 44 ? "var(--gold)" : "var(--dim)";
+// ─── Loading & Auth ────────────────────────────────────────────────────────────
+
+function LoadingScreen({ message }: { message: string }) {
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size, flexShrink: 0 }}>
-      <div className="gauge-glow absolute inset-2 rounded-full blur-lg"
-        style={{ background: `conic-gradient(${color}55 0 ${safe}%, transparent ${safe}% 100%)` }} />
-      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(${color} 0 ${safe}%, rgba(245,236,216,0.07) ${safe}% 100%)` }} />
-      <div className="absolute rounded-full border border-[rgba(245,236,216,0.07)] bg-[rgba(10,11,8,0.95)]" style={{ inset: size / 14 }} />
-      <div className="relative z-10 text-center">
-        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[color:var(--muted)]">Readiness</p>
-        <p className="font-black leading-none tracking-[-0.08em]" style={{ fontSize: size * 0.27, color: safe >= 10 ? "var(--foreground)" : "var(--dim)" }}>{safe}</p>
-        <p className="font-black uppercase tracking-[0.18em]" style={{ fontSize: 8, color, marginTop: 2 }}>{label}</p>
+    <div style={{ background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100dvh", gap: 16 }}>
+      <Image src="/varfoot-mark.svg" alt="VarFoot" width={48} height={48} />
+      <div style={{ display: "flex", gap: 6 }}>
+        {[0, 1, 2].map(i => <div key={i} className="bounce-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)" }} />)}
       </div>
+      <p style={{ fontSize: 13, color: "var(--text-3)", fontWeight: 700 }}>{message}</p>
     </div>
   );
 }
 
-// ─── Auth Screen ──────────────────────────────────────────────────────────────
-const authSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(8, "At least 8 characters"),
-});
-type AuthFormData = z.infer<typeof authSchema>;
+const authSchema = z.object({ email: z.string().email("Valid email required"), password: z.string().min(6, "Min 6 characters") });
+type AuthForm = z.infer<typeof authSchema>;
 
 function AuthScreen({ loading, error, onSubmit, onDemo }: {
   loading: boolean; error: string | null;
-  onSubmit: (mode: AuthMode, email: string, pass: string) => Promise<void>;
+  onSubmit: (mode: "sign-in" | "sign-up", email: string, password: string) => Promise<void>;
   onDemo: () => void;
 }) {
-  const [mode, setMode] = useState<AuthMode>("sign-in");
-  const form = useForm<AuthFormData>({ resolver: zodResolver(authSchema), defaultValues: { email: "", password: "" } });
+  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+  const { register, handleSubmit, formState: { errors } } = useForm<AuthForm>({ resolver: zodResolver(authSchema) });
+  const submit = handleSubmit(d => void onSubmit(mode, d.email, d.password));
   return (
-    <div className="phone-shell" style={{ background: "var(--background)" }}>
-      <div className="phone-column" style={{ justifyContent: "center", padding: "0 20px", paddingTop: "calc(40px + env(safe-area-inset-top,0px))", paddingBottom: "calc(24px + env(safe-area-inset-bottom,0px))" }}>
-        <div className="noise-layer" />
-        <div className="relative z-10 w-full">
-          <div className="mb-8 flex flex-col items-center gap-4">
-            <div className="flex h-[72px] w-[72px] items-center justify-center rounded-[24px] border"
-              style={{ borderColor: "rgba(132,181,109,0.3)", background: "rgba(26,28,18,0.98)", boxShadow: "0 0 44px rgba(132,181,109,0.12)" }}>
-              <Image src="/varfoot-mark.svg" alt="VarFoot" width={44} height={44} priority />
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.36em] text-[color:var(--green)]">VarFoot</p>
-              <h1 className="mt-1.5 text-[30px] font-black leading-tight tracking-[-0.06em]">
-                {mode === "sign-in" ? "Welcome back." : "Start your journey."}
-              </h1>
-              <p className="mt-1.5 text-[14px] text-[color:var(--muted)]">
-                {mode === "sign-in" ? "Pick up where you left off." : "Track gaps. Close the distance."}
-              </p>
-            </div>
-          </div>
-          <div className="paper-shell rounded-[24px] p-5">
-            <form className="space-y-3.5" onSubmit={form.handleSubmit(async v => { await onSubmit(mode, v.email.trim().toLowerCase(), v.password); })}>
-              <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                Email
-                <input className="paper-field h-12 px-4 text-[14px] font-semibold" placeholder="you@example.com"
-                  autoComplete="email" autoCapitalize="none" inputMode="email" {...form.register("email")} />
-                {form.formState.errors.email && <span className="text-[11px] font-bold text-[color:var(--red)]">{form.formState.errors.email.message}</span>}
-              </label>
-              <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                Password
-                <input type="password" className="paper-field h-12 px-4 text-[14px] font-semibold"
-                  placeholder="Min 8 characters" autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-                  {...form.register("password")} />
-                {form.formState.errors.password && <span className="text-[11px] font-bold text-[color:var(--red)]">{form.formState.errors.password.message}</span>}
-              </label>
-              {error && <div className="rounded-[12px] border border-[rgba(215,121,109,0.3)] bg-[rgba(215,121,109,0.1)] px-4 py-3 text-[13px] text-[color:var(--red)]">{error}</div>}
-              <button type="submit" disabled={loading} className="paper-button-primary mt-1 flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">
-                {loading ? "One moment…" : mode === "sign-in" ? "Sign in" : "Create account"}
-              </button>
-            </form>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <button type="button" onClick={() => { setMode(m => m === "sign-in" ? "sign-up" : "sign-in"); form.reset(); }}
-              className="paper-chip rounded-full px-4 py-2 text-[11px] font-black">
-              {mode === "sign-in" ? "New? Create account" : "Already have an account?"}
-            </button>
-            <button type="button" onClick={onDemo} className="paper-chip rounded-full px-4 py-2 text-[11px] font-black">
-              Try demo
-            </button>
-          </div>
-        </div>
+    <div style={{ background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100dvh", padding: "0 24px" }}>
+      <Image src="/varfoot-mark.svg" alt="VarFoot" width={52} height={52} style={{ marginBottom: 8 }} />
+      <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>VarFoot</h1>
+      <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 28, fontWeight: 600 }}>Train with purpose. Make varsity.</p>
+      <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
+        {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(255,107,94,.1)", border: "1px solid rgba(255,107,94,.25)", color: "var(--red)", fontSize: 13, fontWeight: 600 }}>{error}</div>}
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <input className="vf-input" type="email" placeholder="Email" {...register("email")} autoComplete="email" />
+          {errors.email && <p style={{ fontSize: 11, color: "var(--red)", marginTop: -6, fontWeight: 700 }}>{errors.email.message}</p>}
+          <input className="vf-input" type="password" placeholder="Password" {...register("password")} autoComplete={mode === "sign-in" ? "current-password" : "new-password"} />
+          {errors.password && <p style={{ fontSize: 11, color: "var(--red)", marginTop: -6, fontWeight: 700 }}>{errors.password.message}</p>}
+          <button type="submit" className="vf-btn" disabled={loading} style={{ marginTop: 4 }}>
+            {loading ? "Loading…" : mode === "sign-in" ? "Sign in" : "Create account"}
+          </button>
+        </form>
+        <button type="button" onClick={() => setMode(m => m === "sign-in" ? "sign-up" : "sign-in")}
+          style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>
+          {mode === "sign-in" ? "No account? Sign up" : "Have an account? Sign in"}
+        </button>
+        <div style={{ height: 1, background: "var(--border-soft)", margin: "4px 0" }} />
+        <button type="button" className="vf-btn-ghost" onClick={onDemo}>Try demo</button>
       </div>
     </div>
   );
 }
 
 // ─── Onboarding Wizard ────────────────────────────────────────────────────────
-function OnboardingWizard({ onComplete, onSkip }: {
-  onComplete: (data: OnboardData) => Promise<void>;
-  onSkip: () => void;
-}) {
-  const [step, setStep] = useState<OnboardStep>(1);
-  const [data, setData] = useState<OnboardData>({
-    name: "", age: "", school: "", position: "", seasonGoal: "",
-    pushups: "", plankSeconds: "", wallSitSeconds: "",
-    passing: "", shooting: "", dribbling: "", firstTouch: "", speed: "",
-  });
-  function patch(k: keyof OnboardData, v: string) { setData(p => ({ ...p, [k]: v })); }
 
-  if (step === 4) {
-    return (
-      <div className="phone-shell" style={{ background: "var(--background)" }}>
-        <div className="phone-column" style={{ justifyContent: "center", alignItems: "center" }}>
-          <div className="noise-layer" />
-          <div className="relative z-10 flex flex-col items-center gap-5 px-8 text-center">
-            <div className="flex h-[64px] w-[64px] items-center justify-center rounded-[22px] border"
-              style={{ borderColor: "rgba(132,181,109,0.3)", background: "rgba(26,28,18,0.98)" }}>
-              <Image src="/varfoot-mark.svg" alt="" width={38} height={38} />
+const onboardSchema = z.object({
+  name: z.string().min(1, "Required"),
+  age: z.string(),
+  school: z.string(),
+  position: z.string(),
+  seasonGoal: z.string(),
+  pushups: z.string(),
+  plankSeconds: z.string(),
+  wallSitSeconds: z.string(),
+  passing: z.string(),
+  shooting: z.string(),
+  dribbling: z.string(),
+  firstTouch: z.string(),
+  speed: z.string(),
+});
+type OnboardData = z.infer<typeof onboardSchema>;
+
+function OnboardingWizard({ onComplete, onSkip }: { onComplete: (d: OnboardData) => Promise<void>; onSkip: () => void }) {
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [submitting, setSubmitting] = useState(false);
+  const { register, handleSubmit, getValues, trigger, formState: { errors } } = useForm<OnboardData>({
+    resolver: zodResolver(onboardSchema),
+    defaultValues: { pushups: "0", plankSeconds: "0", wallSitSeconds: "0", passing: "0", shooting: "0", dribbling: "0", firstTouch: "0", speed: "0" },
+  });
+
+  const next = async (fields: (keyof OnboardData)[]) => {
+    const ok = await trigger(fields);
+    if (ok) setStep(s => (s + 1) as 1 | 2 | 3 | 4);
+  };
+
+  const finish = handleSubmit(async d => {
+    setSubmitting(true);
+    try { await onComplete(d); } finally { setSubmitting(false); }
+  });
+
+  const stepLabels = ["Profile", "Physical", "Technical", "Done"];
+
+  return (
+    <div style={{ background: "var(--bg)", display: "flex", flexDirection: "column", height: "100dvh", maxWidth: 430, margin: "0 auto" }}>
+      <div style={{ padding: "16px 20px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+          <Image src="/varfoot-mark.svg" alt="" width={28} height={28} />
+          <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: "-.02em" }}>VarFoot Setup</span>
+          <button type="button" onClick={onSkip} style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-3)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>Skip</button>
+        </div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
+          {stepLabels.map((l, i) => (
+            <div key={l} style={{ flex: 1 }}>
+              <div style={{ height: 3, borderRadius: 999, background: i < step ? "var(--green)" : "var(--elev)", transition: "background 300ms" }} />
+              <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginTop: 4, color: i < step ? "var(--green)" : "var(--text-3)" }}>{l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="content-area content-scroll" style={{ flex: 1, padding: "0 20px" }}>
+        {step === 1 && (
+          <div className="slide-in" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>Tell us about you</h2>
+            {(["name", "school", "position"] as const).map(k => (
+              <label key={k} style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".12em", color: "var(--text-2)" }}>
+                {k === "name" ? "Your name" : k === "school" ? "School / team" : "Position"}
+                <input className="vf-input" type="text" placeholder={k === "name" ? "Sansar Karki" : k === "school" ? "Lincoln High" : "Midfielder"} {...register(k)} />
+                {errors[k] && <span style={{ fontSize: 11, color: "var(--red)", fontWeight: 700 }}>{errors[k]?.message}</span>}
+              </label>
+            ))}
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".12em", color: "var(--text-2)" }}>
+              Age
+              <input className="vf-input" type="number" inputMode="numeric" placeholder="16" {...register("age")} />
+              {errors.age && <span style={{ fontSize: 11, color: "var(--red)", fontWeight: 700 }}>{errors.age?.message}</span>}
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".12em", color: "var(--text-2)" }}>
+              Season goal
+              <input className="vf-input" type="text" placeholder="Make varsity this spring" {...register("seasonGoal")} />
+            </label>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="slide-in" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>Physical tests</h2>
+            <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, marginBottom: 4 }}>Enter your best numbers. Be honest — it helps calibrate your plan.</p>
+            {(["pushups", "plankSeconds", "wallSitSeconds"] as const).map(k => {
+              const b = assessmentBenchmarks[k];
+              return (
+                <label key={k} style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".12em", color: "var(--text-2)" }}>
+                  {b.label} ({b.unit})
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input className="vf-input" type="number" inputMode="numeric" placeholder="0" {...register(k)} style={{ flex: 1 }} />
+                    <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 700, flexShrink: 0 }}>Varsity: {b.varsity}</span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="slide-in" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>Technical tests</h2>
+            {(["passing", "shooting", "dribbling", "firstTouch", "speed"] as const).map(k => {
+              const b = assessmentBenchmarks[k];
+              return (
+                <label key={k} style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".12em", color: "var(--text-2)" }}>
+                  {b.label} ({b.unit})
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input className="vf-input" type="number" inputMode="decimal" placeholder="0" {...register(k)} style={{ flex: 1 }} />
+                    <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 700, flexShrink: 0 }}>Varsity: {b.varsity}</span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="slide-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", paddingTop: 32, gap: 16 }}>
+            <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--green-ghost)", border: "2px solid var(--green-line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Check size={36} weight="bold" color="var(--green)" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.32em] text-[color:var(--green)]">Building your roadmap</p>
-              <h2 className="mt-2 text-[26px] font-black tracking-[-0.05em]">Analyzing your gaps…</h2>
-              <p className="mt-2 text-[14px] text-[color:var(--muted)]">Personalizing your 6-week plan</p>
-            </div>
-            <div className="flex gap-1.5">
-              <span className="bounce-dot h-2.5 w-2.5 rounded-full bg-[color:var(--green)]" />
-              <span className="bounce-dot h-2.5 w-2.5 rounded-full bg-[color:var(--green)]" />
-              <span className="bounce-dot h-2.5 w-2.5 rounded-full bg-[color:var(--green)]" />
+              <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-.04em" }}>You&apos;re set, {getValues("name").split(" ")[0] || "athlete"}.</h2>
+              <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, marginTop: 8 }}>We&apos;ll build your 6-week varsity roadmap from your results.</p>
             </div>
           </div>
-        </div>
+        )}
+        <div style={{ height: 120 }} />
       </div>
-    );
-  }
 
-  const canNext1 = data.name.trim().length >= 2;
-  const canNext2 = data.pushups !== "" && data.plankSeconds !== "" && data.wallSitSeconds !== "";
-  const canNext3 = data.passing !== "" && data.shooting !== "" && data.dribbling !== "" && data.firstTouch !== "" && data.speed !== "";
-
-  return (
-    <div className="phone-shell" style={{ background: "var(--background)" }}>
-      <div className="phone-column scrollbar-none" style={{ overflowY: "auto" }}>
-        <div className="noise-layer" />
-        <div className="relative z-10 flex min-h-full flex-col px-5"
-          style={{ paddingTop: "calc(28px + env(safe-area-inset-top,0px))", paddingBottom: "calc(28px + env(safe-area-inset-bottom,0px))" }}>
-
-          {/* Step indicator */}
-          <div className="mb-7 flex items-center gap-2.5">
-            {step > 1 && (
-              <button type="button" onClick={() => setStep(s => (s - 1) as OnboardStep)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(245,236,216,0.11)] text-[color:var(--muted)]">
-                <CaretLeft size={16} weight="bold" />
-              </button>
-            )}
-            <div className="flex gap-2">
-              {[1, 2, 3].map(n => (
-                <div key={n} className="h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: n === step ? 28 : 10, background: n < step ? "var(--green)" : n === step ? "var(--green)" : "rgba(245,236,216,0.12)" }} />
-              ))}
-            </div>
-            <span className="ml-auto text-[11px] font-black uppercase tracking-[0.18em] text-[color:var(--dim)]">
-              {step} / 3
-            </span>
-          </div>
-
-          {/* Step 1: Profile */}
-          {step === 1 && (
-            <div className="flex-1 space-y-5">
-              <div>
-                <Eyebrow tone="green">Step 1 · Profile</Eyebrow>
-                <h2 className="mt-2 text-[28px] font-black leading-tight tracking-[-0.06em]">Let&apos;s build your roadmap.</h2>
-                <p className="mt-1.5 text-[14px] text-[color:var(--muted)]">Tell us who you are so we can personalize your plan.</p>
-              </div>
-              <div className="space-y-3">
-                <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                  Your name *
-                  <input className="paper-field h-11 px-3.5 text-[14px] font-semibold" placeholder="First name"
-                    value={data.name} onChange={e => patch("name", e.target.value)} />
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                    Age
-                    <input type="number" inputMode="numeric" className="paper-field h-11 px-3.5 text-[14px] font-semibold" placeholder="16"
-                      value={data.age} onChange={e => patch("age", e.target.value)} />
-                  </label>
-                  <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                    Position
-                    <select className="paper-field h-11 px-3 text-[13px]" value={data.position} onChange={e => patch("position", e.target.value)}>
-                      <option value="">Select…</option>
-                      {["Goalkeeper", "Center Back", "Fullback", "Defensive Mid", "Central Mid", "Attacking Mid", "Winger", "Striker"].map(p => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                  School
-                  <input className="paper-field h-11 px-3.5 text-[14px] font-semibold" placeholder="e.g. Lexington High"
-                    value={data.school} onChange={e => patch("school", e.target.value)} />
-                </label>
-                <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                  Season goal
-                  <textarea rows={2} className="paper-field resize-none px-3.5 py-2.5 text-[14px] font-semibold"
-                    placeholder="e.g. Make varsity by spring tryouts"
-                    value={data.seasonGoal} onChange={e => patch("seasonGoal", e.target.value)} />
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Physical */}
-          {step === 2 && (
-            <div className="flex-1 space-y-4">
-              <div>
-                <Eyebrow tone="gold">Step 2 · Physical tests</Eyebrow>
-                <h2 className="mt-2 text-[28px] font-black leading-tight tracking-[-0.06em]">How&apos;s your body?</h2>
-                <p className="mt-1.5 text-[14px] text-[color:var(--muted)]">Complete each test and enter your best result.</p>
-              </div>
-              {([
-                { key: "pushups", label: "Pushups", unit: "reps", Icon: Barbell, note: "Max reps without stopping. Chest to floor each rep." },
-                { key: "plankSeconds", label: "Plank hold", unit: "sec", Icon: Lightning, note: "Straight-arm plank. Enter total seconds held." },
-                { key: "wallSitSeconds", label: "Wall sit", unit: "sec", Icon: Barbell, note: "90° knee angle, back flat. Enter total seconds held." },
-              ] as const).map(({ key, label, unit, Icon, note }) => (
-                <Card key={key} className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
-                      style={{ background: "rgba(210,160,74,0.14)", color: "var(--gold)" }}>
-                      <Icon size={20} weight="bold" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-black tracking-[-0.03em]">{label}</p>
-                      <p className="mt-0.5 text-[12px] text-[color:var(--muted)]">{note}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="number" inputMode="numeric" className="paper-field h-11 flex-1 px-3.5 text-[14px] font-semibold"
-                      placeholder="Your result" value={data[key]} onChange={e => patch(key, e.target.value)} />
-                    <span className="w-8 shrink-0 text-[12px] font-black text-[color:var(--dim)]">{unit}</span>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* Step 3: Technical */}
-          {step === 3 && (
-            <div className="flex-1 space-y-3">
-              <div>
-                <Eyebrow tone="blue">Step 3 · Technical tests</Eyebrow>
-                <h2 className="mt-2 text-[26px] font-black leading-tight tracking-[-0.06em]">Ball skills on paper.</h2>
-                <p className="mt-1.5 text-[14px] text-[color:var(--muted)]">Need a ball for each. Enter your best attempt.</p>
-              </div>
-              {([
-                { key: "passing", label: "Wall pass accuracy", unit: "%", note: "10 inside-foot passes at a wall. How many were clean?" },
-                { key: "shooting", label: "Shooting accuracy", unit: "%", note: "10 shots from penalty spot. How many hit the frame?" },
-                { key: "dribbling", label: "Cone slalom time", unit: "sec", note: "6 cones, 1 stride apart. Fastest clean run (seconds)." },
-                { key: "firstTouch", label: "Clean first touches", unit: "%", note: "10 wall rebounds. How many stayed in control first touch?" },
-                { key: "speed", label: "20-yard sprint", unit: "sec", note: "Timed 20-yard dash. Enter fastest time, e.g. 4.2." },
-              ] as const).map(({ key, label, unit, note }) => (
-                <SoftCard key={key} className="space-y-2.5">
-                  <div>
-                    <p className="text-[14px] font-black tracking-[-0.03em]">{label}</p>
-                    <p className="mt-0.5 text-[12px] text-[color:var(--muted)]">{note}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="number" inputMode="decimal" className="paper-field h-11 flex-1 px-3.5 text-[14px] font-semibold"
-                      placeholder="Your result" value={data[key]} onChange={e => patch(key, e.target.value)} />
-                    <span className="w-8 shrink-0 text-[12px] font-black text-[color:var(--dim)]">{unit}</span>
-                  </div>
-                </SoftCard>
-              ))}
-            </div>
-          )}
-
-          {/* Bottom actions */}
-          <div className="mt-8 space-y-3">
-            {step === 1 && (
-              <>
-                <button type="button" disabled={!canNext1} onClick={() => setStep(2)}
-                  className="paper-button-primary flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[14px]">
-                  Continue <ArrowRight size={16} weight="bold" />
-                </button>
-                <button type="button" onClick={onSkip}
-                  className="flex h-11 w-full items-center justify-center text-[12px] font-black uppercase tracking-[0.16em] text-[color:var(--dim)]">
-                  Skip — load demo data
-                </button>
-              </>
-            )}
-            {step === 2 && (
-              <button type="button" disabled={!canNext2} onClick={() => setStep(3)}
-                className="paper-button-primary flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[14px]">
-                Next: Technical tests <ArrowRight size={16} weight="bold" />
-              </button>
-            )}
-            {step === 3 && (
-              <button type="button" disabled={!canNext3}
-                onClick={() => { setStep(4); void onComplete(data); }}
-                className="paper-button-primary flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[15px]">
-                Generate my plan <ArrowRight size={16} weight="bold" />
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="vf-footer" style={{ position: "static", padding: "12px 20px 28px" }}>
+        {step < 4 ? (
+          <button type="button" className="vf-btn" onClick={() => {
+            if (step === 1) void next(["name"]);
+            else if (step === 2) void next(["pushups", "plankSeconds", "wallSitSeconds"]);
+            else void next(["passing", "shooting", "dribbling", "firstTouch", "speed"]);
+          }}>
+            Continue
+          </button>
+        ) : (
+          <button type="button" className="vf-btn" disabled={submitting} onClick={() => void finish()}>
+            {submitting ? "Building plan…" : "Generate my plan ⚡"}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── App Bar ──────────────────────────────────────────────────────────────────
-function AppBar({ title, playerName, syncState, onAvatarTap }: {
-  title: string; playerName: string; syncState: string; onAvatarTap: () => void;
-}) {
-  const initials = playerName.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("") || "VA";
-  const syncColor = syncState === "synced" ? "var(--green)" : syncState === "saving" ? "var(--gold)" : syncState === "error" ? "var(--red)" : undefined;
-  return (
-    <div className="app-bar">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-[10px] border"
-          style={{ borderColor: "rgba(245,236,216,0.11)", background: "rgba(26,28,18,0.96)" }}>
-          <Image src="/varfoot-mark.svg" alt="" width={18} height={18} />
-        </div>
-        <span className="text-[17px] font-black tracking-[-0.03em]">{title}</span>
-        {syncColor && <span className="h-1.5 w-1.5 rounded-full" style={{ background: syncColor }} />}
-      </div>
-      <button type="button" onClick={onAvatarTap}
-        className="flex h-9 w-9 items-center justify-center rounded-full border text-[13px] font-black transition"
-        style={{ borderColor: "rgba(245,236,216,0.14)", background: "rgba(34,36,26,0.96)", color: "var(--muted)" }}>
-        {initials}
-      </button>
-    </div>
-  );
-}
+// ─── Navigation components ────────────────────────────────────────────────────
 
-// ─── Bottom Nav ───────────────────────────────────────────────────────────────
-function BottomNav({ active, onSelect }: { active: NavTab; onSelect: (t: NavTab) => void }) {
+const NAV_TABS: Array<{ id: RootTab; label: string; Icon: React.ComponentType<{ size: number; weight: string; color: string }> }> = [
+  { id: "home",  label: "Home",  Icon: House as never },
+  { id: "plan",  label: "Plan",  Icon: Target as never },
+  { id: "track", label: "Track", Icon: ChartLineUp as never },
+  { id: "coach", label: "Coach", Icon: ChatsCircle as never },
+];
+
+function BottomNav({ active, onSelect }: { active: RootTab; onSelect: (t: RootTab) => void }) {
   return (
     <div className="bottom-nav">
-      <div className="nav-grid">
-        {NAV.map(({ key, label, Icon }) => {
-          const isActive = key === active;
-          return (
-            <button key={key} type="button" className="nav-item" onClick={() => onSelect(key)}>
-              <span className="nav-dot" style={{ background: isActive ? "var(--green)" : "transparent", opacity: isActive ? 1 : 0 }} />
-              <Icon size={22} weight={isActive ? "fill" : "regular"} style={{ color: isActive ? "var(--green)" : "var(--dim)" }} />
-              <span className="nav-label" style={{ color: isActive ? "var(--green)" : "var(--dim)" }}>{label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Profile Sheet ────────────────────────────────────────────────────────────
-function ProfileSheet({ state, localMode, syncState, onSignOut, onLoadDemo, onReset, onClose }: {
-  state: AppState; localMode: boolean; syncState: string;
-  onSignOut: () => Promise<void>; onLoadDemo: () => void; onReset: () => void; onClose: () => void;
-}) {
-  const syncLabel: Record<string, string> = {
-    local: "Local only", loading: "Loading…", saving: "Saving…",
-    synced: "Cloud synced", error: "Sync error", "signed-out": "Signed out",
-  };
-  return (
-    <div className="absolute inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.6)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-[430px] mx-auto rounded-t-[28px] border border-[rgba(245,236,216,0.11)]"
-        style={{ background: "rgba(12,13,10,0.98)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 20px)" }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="h-1 w-9 rounded-full bg-[rgba(245,236,216,0.18)]" />
-        </div>
-        <div className="px-5 pt-3 pb-2">
-          <div className="mb-5 flex items-center gap-4">
-            <div className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-full border text-[18px] font-black"
-              style={{ borderColor: "rgba(132,181,109,0.22)", background: "rgba(26,28,18,0.96)", color: "var(--foreground)" }}>
-              {(state.assessment.name || "VA").slice(0, 2).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[19px] font-black tracking-[-0.04em]">{state.assessment.name || "Athlete"}</p>
-              <p className="truncate text-[13px] text-[color:var(--muted)]">{state.assessment.school || "—"} · {state.assessment.position || "—"}</p>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--dim)]">{syncLabel[syncState] ?? syncState}</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <button type="button" onClick={onLoadDemo}
-              className="paper-button-primary flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">
-              Load demo athlete
-            </button>
-            <button type="button" onClick={onReset}
-              className="paper-button-secondary flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">
-              Reset all data
-            </button>
-            {!localMode && (
-              <button type="button" onClick={() => void onSignOut()}
-                className="flex h-12 w-full items-center justify-center rounded-[14px] border text-[14px] font-black"
-                style={{ borderColor: "rgba(215,121,109,0.26)", background: "rgba(215,121,109,0.08)", color: "var(--red)" }}>
-                Sign out
-              </button>
-            )}
-          </div>
-          <button type="button" onClick={onClose}
-            className="mt-4 flex h-10 w-full items-center justify-center text-[12px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">
-            Close
+      {NAV_TABS.map(({ id, label, Icon }) => {
+        const on = id === active;
+        return (
+          <button key={id} type="button" className="nav-item" onClick={() => onSelect(id)}>
+            <Icon size={22} weight={on ? "fill" : "regular"} color={on ? "var(--green)" : "var(--text-3)"} />
+            <span className="nav-label" style={{ color: on ? "var(--green)" : "var(--text-3)" }}>{label}</span>
           </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function BackBar({ title, sub, onBack, action }: { title: string; sub?: string; onBack: () => void; action?: ReactNode }) {
+  return (
+    <div className="app-bar">
+      <button type="button" onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "var(--green)", fontWeight: 800, fontSize: 14 }}>
+        <CaretLeft size={20} weight="bold" color="var(--green)" /> Back
+      </button>
+      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", textAlign: "center" }}>
+        <p style={{ fontSize: 15, fontWeight: 900, letterSpacing: "-.02em", color: "var(--text)", whiteSpace: "nowrap" }}>{title}</p>
+        {sub && <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>{sub}</p>}
+      </div>
+      <div>{action}</div>
+    </div>
+  );
+}
+
+function TopBar({ title, streak, onAvatarTap }: { title: string; streak: number; onAvatarTap: () => void }) {
+  return (
+    <div className="app-bar">
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--surface)" }}>
+          <Image src="/varfoot-mark.svg" alt="" width={20} height={20} />
         </div>
+        <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: "-.03em" }}>{title}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {streak > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--border-soft)" }}>
+            <Fire size={13} weight="fill" color="var(--yellow)" />
+            <span style={{ fontSize: 12, fontWeight: 900, color: "var(--text)" }}>{streak}</span>
+          </div>
+        )}
+        <button type="button" onClick={onAvatarTap} style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--elev)", color: "var(--text-2)", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
+          SK
+        </button>
       </div>
     </div>
   );
 }
 
-// ─── Home Tab ─────────────────────────────────────────────────────────────────
-function HomeTab({ state, scores, nutritionTotals, onGoToStats, onGoToPlan, onGeneratePlan, planLoading }: {
-  state: AppState; scores: ReturnType<typeof getAssessmentScores>;
+// ─── Home Screen ──────────────────────────────────────────────────────────────
+
+function HomeScreen({ state, scores, nutritionTotals, go, goTab, onGeneratePlan, planLoading }: {
+  state: AppState;
+  scores: ReturnType<typeof getAssessmentScores>;
   nutritionTotals: ReturnType<typeof getNutritionTotals>;
-  onGoToStats: () => void; onGoToPlan: () => void;
-  onGeneratePlan: () => Promise<void>; planLoading: boolean;
+  go: (s: Screen) => void;
+  goTab: (t: RootTab) => void;
+  onGeneratePlan: () => Promise<void>;
+  planLoading: boolean;
 }) {
   const hour = new Date().getHours();
-  const greeting = hour < 5 ? "Up early" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const firstName = (state.assessment.name || "Athlete").split(" ")[0];
-  const topGaps = scores.gaps.slice(0, 2);
-  const selectedWeek = state.plan.weeks.find(w => w.week === state.selectedWeek) ?? state.plan.weeks[0];
-  const nextSession = selectedWeek?.sessions.find(s => s.status === "today") ?? selectedWeek?.sessions[0];
-  const calPct = Math.min(1, nutritionTotals.calories / state.nutrition.calorieTarget);
-  const hasData = state.onboardingComplete;
+  const today = state.plan.weeks
+    .flatMap(w => w.sessions)
+    .find(s => s.status === "today") ?? state.plan.weeks[0]?.sessions[0];
+  const calPct = Math.min(1, nutritionTotals.calories / (state.nutrition.calorieTarget || 2000));
+  const techScore = Math.round(scores.technicalScore);
+  const physScore = Math.round(scores.physicalScore);
+  const nutriScore = Math.round(calPct * 100);
 
   return (
-    <div className="tab-enter space-y-3.5 px-4 pb-6 pt-3">
+    <div className="tab-enter" style={{ padding: "8px 16px 80px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[color:var(--dim)]">
-          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+        <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".2em", color: "var(--text-3)" }}>
+          {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase()}
         </p>
-        <h2 className="mt-0.5 text-[28px] font-black tracking-[-0.05em]">
-          {greeting}{hasData ? `, ${firstName}.` : "."}
-        </h2>
+        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-.05em", marginTop: 2 }}>{greeting}, {firstName}.</h1>
       </div>
 
-      {!hasData ? (
-        <>
-          <div className="flex justify-center py-4">
-            <Gauge score={0} size={180} />
+      {today && (
+        <HiCard onClick={() => go({ id: "session" })}>
+          <Eyebrow tone="green">Today&apos;s session · ~{today.duration}</Eyebrow>
+          <h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-.04em", marginTop: 6 }}>{today.title}</h2>
+          <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, marginTop: 4 }}>{today.drill}</p>
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <span className="vf-chip" style={{ fontSize: 11 }}>3 drills</span>
+              <span className="vf-chip" style={{ fontSize: 11 }}>{today.focus}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--green)", fontWeight: 900, fontSize: 13 }}>
+              Start <ArrowRight size={14} weight="bold" />
+            </div>
           </div>
-          <Card>
-            <Eyebrow tone="green">Get started</Eyebrow>
-            <h3 className="mt-1.5 text-[20px] font-black tracking-[-0.05em]">Build your roadmap.</h3>
-            <p className="mt-2 text-[13px] leading-5 text-[color:var(--muted)]">
-              Complete a 3-minute assessment to compare your skills against varsity benchmarks and get a personalized 6-week training plan.
+        </HiCard>
+      )}
+
+      <div>
+        <Eyebrow>Your level</Eyebrow>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
+          {[
+            { label: "Technical", score: techScore, color: "var(--green)", action: () => goTab("track") },
+            { label: "Physical",  score: physScore, color: "var(--blue)",  action: () => go({ id: "track", seg: "physical" }) },
+            { label: "Nutrition", score: nutriScore, color: "var(--yellow)", action: () => go({ id: "nutrition" }) },
+          ].map(({ label, score, color, action }) => (
+            <Card key={label} onClick={action} className="transition active:scale-[0.97]">
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, marginBottom: 8 }} />
+              <p style={{ fontSize: 11, fontWeight: 800, color: "var(--text-2)", marginBottom: 4 }}>{label}</p>
+              <p style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.05em", lineHeight: 1, fontFamily: "var(--font-plex-mono)", color: "var(--text)" }}>{score}</p>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <Card onClick={() => goTab("coach")} className="transition active:scale-[0.98]">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="vf-ico">
+            <ChatsCircle size={20} weight="fill" color="var(--green)" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Eyebrow>Coach&apos;s note</Eyebrow>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {state.coach.messages.find(m => m.role === "assistant")?.text ?? "Tap to open your AI coach."}
             </p>
-            <button type="button" onClick={onGoToStats}
-              className="paper-button-primary mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[13px] text-[14px]">
-              View benchmarks <ArrowRight size={15} weight="bold" />
-            </button>
-          </Card>
-        </>
-      ) : (
-        <>
-          <div className="flex items-center gap-4">
-            <Gauge score={Math.round(scores.overallScore)} size={156} />
-            <div className="flex-1 min-w-0 space-y-2">
-              <Stat label="Top gap" value={topGaps[0]?.label ?? "—"} tone="gold" compact />
-              <Stat label="Fuel today" value={`${nutritionTotals.calories} kcal`}
-                tone={calPct >= 0.8 ? "green" : calPct >= 0.5 ? "gold" : "neutral"} compact />
-              {state.assessment.seasonGoal && (
-                <Stat label="Goal" value={state.assessment.seasonGoal.slice(0, 28) + (state.assessment.seasonGoal.length > 28 ? "…" : "")} tone="neutral" compact />
-              )}
-            </div>
           </div>
+          <ArrowRight size={16} color="var(--text-3)" weight="bold" />
+        </div>
+      </Card>
 
-          {nextSession && (
-            <button type="button" onClick={onGoToPlan} className="w-full text-left">
-              <SoftCard className="transition active:scale-[0.98]">
-                <Eyebrow>Today&apos;s session</Eyebrow>
-                <div className="mt-2 flex items-start gap-3">
-                  <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[13px]"
-                    style={{ background: "rgba(132,181,109,0.14)" }}>
-                    <Timer size={20} weight="bold" style={{ color: "var(--green)" }} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[16px] font-black tracking-[-0.04em]">{nextSession.title}</p>
-                    <p className="text-[13px] text-[color:var(--muted)]">{nextSession.drill}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{nextSession.day}</span>
-                      <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{nextSession.duration}</span>
-                      <span className="rounded-full px-2.5 py-1 text-[10px] font-black border"
-                        style={{ background: "rgba(132,181,109,0.14)", color: "var(--green)", borderColor: "rgba(132,181,109,0.3)" }}>
-                        {nextSession.focus}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </SoftCard>
-            </button>
-          )}
+      <Card onClick={() => go({ id: "benchmark" })} className="transition active:scale-[0.98]">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="vf-ico">
+            <Target size={20} weight="fill" color="var(--green)" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <Eyebrow tone="green">You vs varsity</Eyebrow>
+            <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text)", marginTop: 3 }}>See your full gap analysis</p>
+          </div>
+          <ArrowRight size={16} color="var(--text-3)" weight="bold" />
+        </div>
+      </Card>
 
-          {topGaps.length > 0 && (
-            <div>
-              <Eyebrow>Top gaps to close</Eyebrow>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {topGaps.map(gap => (
-                  <SoftCard key={gap.metric} className="py-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">{gap.label}</p>
-                    <p className="mt-1 text-[32px] font-black leading-none tracking-[-0.07em]">
-                      {Math.round(gap.score)}<span className="text-[13px] text-[color:var(--dim)]">%</span>
-                    </p>
-                    <p className="mt-1 text-[11px] text-[color:var(--muted)]">{gap.higherIsBetter ? "Push higher ↑" : "Push lower ↓"}</p>
-                  </SoftCard>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {selectedWeek && (
-            <button type="button" onClick={onGoToPlan} className="w-full text-left">
-              <Card className="transition active:scale-[0.98]">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Eyebrow tone="green">Week {selectedWeek.week} · {selectedWeek.label}</Eyebrow>
-                    <p className="mt-1 text-[13px] leading-5 text-[color:var(--muted)]">{selectedWeek.readinessNote}</p>
-                  </div>
-                  <ArrowRight size={18} weight="bold" style={{ color: "var(--dim)", flexShrink: 0 }} />
-                </div>
-              </Card>
-            </button>
-          )}
-
-          <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading}
-            className="paper-button-secondary flex h-11 w-full items-center justify-center rounded-[14px] text-[13px]">
-            {planLoading ? "Regenerating…" : "Regenerate training plan"}
-          </button>
-        </>
+      {!state.plan.weeks.length && (
+        <Btn onClick={() => void onGeneratePlan()} disabled={planLoading}>
+          {planLoading ? "Building plan…" : "Generate my plan ⚡"}
+        </Btn>
       )}
     </div>
   );
 }
 
-// ─── Stats Tab ────────────────────────────────────────────────────────────────
-function StatsTab({ state, scores, onAssessmentChange, onGeneratePlan, onToggleDrill, planLoading }: {
-  state: AppState; scores: ReturnType<typeof getAssessmentScores>;
-  onAssessmentChange: (key: keyof AppState["assessment"], value: string) => void;
-  onGeneratePlan: () => Promise<void>; onToggleDrill: (name: string) => void; planLoading: boolean;
-}) {
-  const [section, setSection] = useState<DashSection>("benchmark");
-  const SECTIONS: Array<{ key: DashSection; label: string }> = [
-    { key: "benchmark", label: "Benchmark" },
-    { key: "assess", label: "Assessment" },
-    { key: "library", label: "Drills" },
-  ];
-  const TECH: MetricKey[] = ["passing", "shooting", "dribbling", "firstTouch", "speed"];
-  const PHYS: MetricKey[] = ["pushups", "plankSeconds", "wallSitSeconds"];
+// ─── Plan Screen ──────────────────────────────────────────────────────────────
 
-  return (
-    <div className="tab-enter space-y-3 px-4 pb-6 pt-3">
-      <div className="flex gap-2 overflow-x-auto scrollbar-none">
-        {SECTIONS.map(s => (
-          <button key={s.key} type="button" onClick={() => setSection(s.key)}
-            className={cn("shrink-0 rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] transition",
-              section === s.key ? "paper-chip-active" : "paper-chip")}>
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      {section === "benchmark" && (
-        <div className="space-y-3">
-          <Card>
-            <div className="flex items-center gap-5">
-              <Gauge score={Math.round(scores.overallScore)} size={148} />
-              <div className="flex-1 space-y-3">
-                <div>
-                  <Eyebrow tone="green">Technical</Eyebrow>
-                  <p className="text-[32px] font-black leading-none tracking-[-0.07em]">
-                    {Math.round(scores.technicalScore)}<span className="text-[14px] font-bold text-[color:var(--dim)]">/100</span>
-                  </p>
-                </div>
-                <div>
-                  <Eyebrow tone="gold">Physical</Eyebrow>
-                  <p className="text-[32px] font-black leading-none tracking-[-0.07em]">
-                    {Math.round(scores.physicalScore)}<span className="text-[14px] font-bold text-[color:var(--dim)]">/100</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-          <Card>
-            <Eyebrow tone="green">Technical — vs varsity targets</Eyebrow>
-            <div className="mt-4 space-y-5">
-              {TECH.map(m => <BenchmarkBar key={m} metric={m} value={state.assessment[m] as number} />)}
-            </div>
-          </Card>
-          <Card>
-            <Eyebrow tone="gold">Physical — vs varsity targets</Eyebrow>
-            <div className="mt-4 space-y-5">
-              {PHYS.map(m => <BenchmarkBar key={m} metric={m} value={state.assessment[m] as number} />)}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {section === "assess" && (
-        <div className="space-y-3">
-          <Card>
-            <Eyebrow tone="green">Profile</Eyebrow>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              {([
-                { key: "name", label: "Name", span: true, type: "text" },
-                { key: "age", label: "Age", span: false, type: "number" },
-                { key: "school", label: "School", span: false, type: "text" },
-                { key: "position", label: "Position", span: false, type: "text" },
-                { key: "height", label: "Height", span: false, type: "text" },
-                { key: "weight", label: "Weight", span: false, type: "text" },
-                { key: "seasonGoal", label: "Season goal", span: true, type: "text" },
-              ] as const).map(({ key, label, span, type }) => (
-                <label key={key} className={cn("grid gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--muted)]", span && "col-span-2")}>
-                  {label}
-                  <input type={type} className="paper-field h-10 px-3 text-[13px] font-semibold"
-                    value={state.assessment[key]} onChange={e => onAssessmentChange(key, e.target.value)} />
-                </label>
-              ))}
-            </div>
-          </Card>
-          <Card>
-            <Eyebrow tone="gold">Physical tests</Eyebrow>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              {PHYS.map(metric => (
-                <label key={metric} className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--muted)]">
-                  {assessmentBenchmarks[metric].label}
-                  <div className="flex items-center gap-1">
-                    <input type="number" inputMode="numeric" className="paper-field h-10 flex-1 px-3 text-[13px] font-semibold"
-                      value={state.assessment[metric]} onChange={e => onAssessmentChange(metric, e.target.value)} />
-                    <span className="shrink-0 text-[10px] text-[color:var(--dim)]">{assessmentBenchmarks[metric].unit}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </Card>
-          <Card>
-            <Eyebrow tone="green">Technical tests</Eyebrow>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              {TECH.map(metric => (
-                <label key={metric} className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--muted)]">
-                  {assessmentBenchmarks[metric].label}
-                  <div className="flex items-center gap-1">
-                    <input type="number" inputMode="decimal" className="paper-field h-10 flex-1 px-3 text-[13px] font-semibold"
-                      value={state.assessment[metric]} onChange={e => onAssessmentChange(metric, e.target.value)} />
-                    <span className="shrink-0 text-[10px] text-[color:var(--dim)]">{assessmentBenchmarks[metric].unit}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </Card>
-          <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading}
-            className="paper-button-primary flex h-12 w-full items-center justify-center rounded-[14px] text-[14px]">
-            {planLoading ? "Building plan…" : "Re-score & generate plan"}
-          </button>
-        </div>
-      )}
-
-      {section === "library" && (
-        <div className="space-y-3">
-          {drillLibrary.map(drill => {
-            const saved = state.library.savedDrills.includes(drill.name);
-            return (
-              <Card key={drill.name}>
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <Eyebrow tone="green">{drill.focus}</Eyebrow>
-                    <h3 className="mt-1 text-[17px] font-black tracking-[-0.04em]">{drill.name}</h3>
-                    <p className="mt-1.5 text-[13px] leading-5 text-[color:var(--muted)]">{drill.instructions}</p>
-                    <div className="mt-2.5 flex flex-wrap gap-1.5">
-                      <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{drill.duration}</span>
-                      <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{drill.equipment}</span>
-                    </div>
-                    <p className="mt-2 text-[11px] font-bold" style={{ color: "var(--green)" }}>Target: {drill.target}</p>
-                  </div>
-                  <button type="button" onClick={() => onToggleDrill(drill.name)}
-                    className={cn("shrink-0 rounded-[11px] border px-3 py-1.5 text-[11px] font-black transition",
-                      saved ? "border-[rgba(132,181,109,0.38)] bg-[rgba(132,181,109,0.16)] text-[color:var(--green)]" : "paper-chip")}>
-                    {saved ? "✓ Saved" : "Save"}
-                  </button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Plan Tab ─────────────────────────────────────────────────────────────────
-function PlanTab({ state, selectedWeek, onSelectWeek, onGeneratePlan, planLoading, planSummary }: {
-  state: AppState; selectedWeek: AppState["plan"]["weeks"][number] | undefined;
-  onSelectWeek: (w: number) => void; onGeneratePlan: () => Promise<void>;
+function PlanScreen({ state, onSelectWeek, go, onGeneratePlan, planLoading, planSummary }: {
+  state: AppState; onSelectWeek: (w: number) => void;
+  go: (s: Screen) => void; onGeneratePlan: () => Promise<void>;
   planLoading: boolean; planSummary: string | null;
 }) {
-  const statusColor: Record<string, string> = { done: "var(--green)", today: "var(--gold)", queued: "var(--dim)" };
-  const statusLabel: Record<string, string> = { done: "Done", today: "Today", queued: "Up next" };
+  const selectedWeek = state.plan.weeks.find(w => w.week === state.selectedWeek) ?? state.plan.weeks[0];
 
   if (!state.plan.weeks.length) {
     return (
-      <div className="tab-enter space-y-4 px-4 pb-6 pt-3">
-        <h2 className="text-[26px] font-black tracking-[-0.05em]">Training Plan</h2>
+      <div className="tab-enter" style={{ padding: "24px 16px 80px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-.04em" }}>Training Plan</h2>
         <Card>
-          <div className="py-6 text-center">
-            <ChartLineUp size={48} weight="light" style={{ margin: "0 auto", color: "var(--dim)" }} />
-            <p className="mt-3 text-[18px] font-black tracking-[-0.04em]">No plan yet</p>
-            <p className="mt-2 text-[13px] leading-5 text-[color:var(--muted)]">
-              Complete the assessment in Stats → Assessment to generate your personalized 6-week varsity roadmap.
+          <div style={{ padding: "24px 0", textAlign: "center" }}>
+            <Target size={48} weight="light" color="var(--text-3)" style={{ margin: "0 auto" }} />
+            <p style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-.04em", marginTop: 12 }}>No plan yet</p>
+            <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, marginTop: 8, lineHeight: 1.5 }}>
+              Complete the assessment to generate your personalized 6-week varsity roadmap.
             </p>
-            <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading}
-              className="paper-button-primary mt-5 flex h-11 w-full items-center justify-center rounded-[13px] text-[14px]">
-              {planLoading ? "Generating…" : "Generate plan"}
+            <button type="button" className="vf-btn" onClick={() => void onGeneratePlan()} disabled={planLoading} style={{ marginTop: 20 }}>
+              {planLoading ? "Generating…" : "Generate plan ⚡"}
             </button>
           </div>
         </Card>
@@ -823,267 +581,791 @@ function PlanTab({ state, selectedWeek, onSelectWeek, onGeneratePlan, planLoadin
   }
 
   return (
-    <div className="tab-enter space-y-3 px-4 pb-6 pt-3">
-      <div>
-        <h2 className="text-[26px] font-black tracking-[-0.05em]">Training Plan</h2>
-        <p className="text-[13px] text-[color:var(--muted)]">6-week varsity roadmap</p>
+    <div className="tab-enter" style={{ padding: "8px 16px 80px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-.04em" }}>Training Plan</h2>
+        <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>6 weeks</span>
       </div>
 
       {planSummary && (
-        <div className="rounded-[20px] border p-4"
-          style={{ borderColor: "rgba(132,181,109,0.22)", background: "linear-gradient(145deg, rgba(132,181,109,0.09), rgba(16,17,12,0.98))" }}>
+        <FlatCard>
           <Eyebrow tone="green">AI Coach</Eyebrow>
-          <p className="mt-2 text-[14px] leading-[1.5] text-[color:var(--foreground)]">{planSummary}</p>
-        </div>
+          <p style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginTop: 6, lineHeight: 1.5 }}>{planSummary}</p>
+        </FlatCard>
       )}
 
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
-        {state.plan.weeks.map(week => (
-          <button key={week.week} type="button" onClick={() => onSelectWeek(week.week)}
-            className={cn("shrink-0 rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] transition",
-              week.week === state.selectedWeek ? "paper-chip-active" : "paper-chip")}>
-            Wk {week.week}
+      <div style={{ display: "flex", gap: 8, overflowX: "auto" }} className="scrollbar-none">
+        {state.plan.weeks.map(w => (
+          <button key={w.week} type="button" className={cn("vf-chip", w.week === state.selectedWeek && "on")} onClick={() => onSelectWeek(w.week)}>
+            Wk {w.week}
           </button>
         ))}
       </div>
 
       {selectedWeek && (
         <>
+          <HiCard>
+            <Eyebrow tone="green">Week {selectedWeek.week} of {state.plan.weeks.length}</Eyebrow>
+            <h3 style={{ fontSize: 17, fontWeight: 900, letterSpacing: "-.03em", marginTop: 4 }}>{selectedWeek.label}</h3>
+            <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, marginTop: 4 }}>{selectedWeek.emphasis}</p>
+            <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600, marginTop: 6, fontStyle: "italic" }}>{selectedWeek.readinessNote}</p>
+          </HiCard>
+
+          <div style={{ position: "relative", paddingLeft: 26 }}>
+            <div style={{ position: "absolute", left: 25, top: 0, bottom: 0, width: 2, background: "repeating-linear-gradient(180deg, var(--border) 0 4px, transparent 4px 9px)" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {selectedWeek.sessions.map((session, idx) => {
+                const isDone = session.status === "done";
+                const isToday = session.status === "today";
+                const isLocked = session.status === "queued";
+                return (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 14, opacity: isLocked ? 0.45 : 1 }}>
+                    <div className={cn("vf-node-dot", isDone && "done", isToday && "now", isLocked && "lock")}
+                      style={{ cursor: isLocked ? "default" : "pointer" }}
+                      onClick={() => !isLocked && go({ id: "session" })}>
+                      {isDone ? <Check size={20} weight="bold" /> : isLocked ? <Lock size={18} weight="bold" /> : <Lightning size={20} weight="fill" />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, cursor: isLocked ? "default" : "pointer" }} onClick={() => !isLocked && go({ id: "session" })}>
+                      <p style={{ fontSize: 14, fontWeight: 900, color: isToday ? "var(--green)" : "var(--text)" }}>{session.title}</p>
+                      <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600 }}>{session.day} · {session.duration}</p>
+                    </div>
+                    {isToday && <span className="vf-chip on" style={{ fontSize: 10 }}>TODAY</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Track / Dashboard Screen ─────────────────────────────────────────────────
+
+function TrackScreen({ state, scores, go }: {
+  state: AppState; scores: ReturnType<typeof getAssessmentScores>;
+  go: (s: Screen) => void;
+}) {
+  const [seg, setSeg] = useState<TrackSeg>("technical");
+  const TECH: MetricKey[] = ["passing", "shooting", "dribbling", "firstTouch", "speed"];
+  const PHYS: MetricKey[] = ["pushups", "plankSeconds", "wallSitSeconds"];
+
+  const radarYou = TECH.map(m => {
+    const b = assessmentBenchmarks[m];
+    const v = state.assessment[m] as number;
+    if (b.higherIsBetter) return Math.min(100, (v / b.varsity) * 100);
+    return Math.min(100, (b.freshman / v) * 100);
+  });
+  const radarTgt = [100, 100, 100, 100, 100];
+  const axes = ["PAS", "SHO", "DRI", "TOU", "SPD"];
+
+  return (
+    <div className="tab-enter" style={{ padding: "8px 16px 80px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-.04em" }}>Progress</h2>
+        <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>Last 8 weeks</span>
+      </div>
+
+      <div className="vf-seg">
+        {(["technical", "physical"] as const).map(s => (
+          <button key={s} type="button" className={cn("vf-seg-btn", seg === s && "on")} onClick={() => setSeg(s)}>
+            {s === "technical" ? "Technical" : "Physical"}
+          </button>
+        ))}
+        <button type="button" className="vf-seg-btn" onClick={() => go({ id: "nutrition" })}>Nutrition</button>
+      </div>
+
+      {seg === "technical" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Card>
-            <Eyebrow tone="green">Week {selectedWeek.week} · {selectedWeek.emphasis}</Eyebrow>
-            <h3 className="mt-1 text-[20px] font-black tracking-[-0.05em]">{selectedWeek.label}</h3>
-            <p className="mt-1.5 text-[13px] leading-5 text-[color:var(--muted)]">{selectedWeek.readinessNote}</p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <span className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black">{selectedWeek.sessions.length} sessions</span>
-              <span className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black">Focus: {selectedWeek.emphasis}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div>
+                <p className="vf-stat-n big" style={{ fontFamily: "var(--font-plex-mono)", color: "var(--green)" }}>{Math.round(scores.technicalScore)}</p>
+                <p className="vf-stat-l">Technical</p>
+                <p className="vf-delta" style={{ marginTop: 4 }}>+{Math.max(0, Math.round(scores.technicalScore - 57))} this season</p>
+              </div>
+              <div style={{ flex: 1, textAlign: "right" }}>
+                <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>Varsity target</p>
+                <p style={{ fontSize: 22, fontWeight: 900, fontFamily: "var(--font-plex-mono)", color: "var(--text)" }}>80</p>
+                <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700, marginTop: 2 }}>{Math.max(0, 80 - Math.round(scores.technicalScore))} to go</p>
+              </div>
+            </div>
+            <div className="vf-bar" style={{ marginTop: 12 }}>
+              <div className="vf-bar-fill" style={{ width: `${Math.round(scores.technicalScore)}%` }} />
             </div>
           </Card>
 
-          {selectedWeek.sessions.map(session => (
-            <SoftCard key={`${session.day}-${session.title}`}>
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] text-[12px] font-black"
-                  style={{ background: `${statusColor[session.status]}18`, color: statusColor[session.status] }}>
-                  {session.day}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-[15px] font-black tracking-[-0.03em]">{session.title}</p>
-                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em]"
-                      style={{ color: statusColor[session.status], background: `${statusColor[session.status]}18`, border: `1px solid ${statusColor[session.status]}38` }}>
-                      {statusLabel[session.status]}
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-[color:var(--muted)]">{session.drill}</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{session.duration}</span>
-                    <span className="paper-chip rounded-full px-2.5 py-1 text-[10px] font-black">{session.focus}</span>
-                  </div>
-                  <p className="mt-2 text-[11px] font-bold" style={{ color: "var(--green)" }}>Target: {session.target}</p>
-                </div>
-              </div>
-            </SoftCard>
-          ))}
-        </>
+          <Card>
+            <Eyebrow>Skill shape · you vs varsity</Eyebrow>
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 10 }}>
+              <Radar you={radarYou} tgt={radarTgt} axes={axes} size={160} />
+            </div>
+            <button type="button" onClick={() => go({ id: "benchmark" })} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", marginTop: 10, fontSize: 12, fontWeight: 800, color: "var(--green)", background: "none", border: "none", cursor: "pointer" }}>
+              Full benchmark <ArrowRight size={13} weight="bold" />
+            </button>
+          </Card>
+
+          <div>
+            <Eyebrow>Skills breakdown</Eyebrow>
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 1 }}>
+              {TECH.map(m => {
+                const b = assessmentBenchmarks[m];
+                const v = state.assessment[m] as number;
+                const pct = b.higherIsBetter ? Math.min(100, (v / b.varsity) * 100) : Math.min(100, (b.freshman / Math.max(v, 0.1)) * 100);
+                const gap = b.higherIsBetter ? b.varsity - v : v - b.varsity;
+                const gapStr = gap > 0 ? `+${gap.toFixed(1)} to close` : "Varsity ✓";
+                return (
+                  <button key={m} type="button" onClick={() => go({ id: "skill", name: b.label })} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: "none", borderLeft: "none", borderRight: "none", borderBottom: "1px solid var(--border-soft)", background: "none", cursor: "pointer", textAlign: "left", width: "100%" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{b.label}</span>
+                        <span style={{ fontSize: 12, fontFamily: "var(--font-plex-mono)", fontWeight: 700, color: "var(--text)" }}>{v}{b.unit}</span>
+                      </div>
+                      <div className="vf-bar thin"><div className="vf-bar-fill" style={{ width: `${pct}%` }} /></div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <p style={{ fontSize: 10, color: gap > 0 ? "var(--red)" : "var(--green)", fontWeight: 800 }}>{gapStr}</p>
+                    </div>
+                    <ArrowRight size={14} color="var(--text-3)" weight="bold" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <Eyebrow>Personal bests</Eyebrow>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
+              {[
+                { val: `${state.assessment.speed}s`, label: "20-yd sprint", Icon: Lightning },
+                { val: `${state.assessment.pushups}`, label: "Pushups", Icon: Barbell },
+                { val: `${state.assessment.plankSeconds}s`, label: "Plank", Icon: Timer },
+              ].map(({ val, label, Icon }) => (
+                <FlatCard key={label} className="text-center" style={{ textAlign: "center" }}>
+                  <Icon size={18} weight="bold" color="var(--green)" style={{ margin: "0 auto 6px" }} />
+                  <p style={{ fontSize: 18, fontWeight: 900, fontFamily: "var(--font-plex-mono)", lineHeight: 1 }}>{val}</p>
+                  <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--text-3)", marginTop: 4 }}>{label}</p>
+                </FlatCard>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
-      <button type="button" onClick={() => void onGeneratePlan()} disabled={planLoading}
-        className="paper-button-secondary flex h-11 w-full items-center justify-center rounded-[14px] text-[13px]">
-        {planLoading ? "Regenerating…" : "Regenerate plan"}
+      {seg === "physical" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div>
+                <p className="vf-stat-n big" style={{ fontFamily: "var(--font-plex-mono)", color: "var(--blue)" }}>{Math.round(scores.physicalScore)}</p>
+                <p className="vf-stat-l">Physical</p>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="vf-bar"><div className="vf-bar-fill" style={{ width: `${Math.round(scores.physicalScore)}%`, background: "var(--blue)" }} /></div>
+              </div>
+            </div>
+          </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {PHYS.map(m => {
+              const b = assessmentBenchmarks[m];
+              const v = state.assessment[m] as number;
+              const pct = b.higherIsBetter ? Math.min(100, (v / b.varsity) * 100) : Math.min(100, (b.freshman / Math.max(v, 0.1)) * 100);
+              return (
+                <Card key={m}>
+                  <Eyebrow>{b.label}</Eyebrow>
+                  <p style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-.04em", fontFamily: "var(--font-plex-mono)", marginTop: 4 }}>{v}<span style={{ fontSize: 12, color: "var(--text-3)" }}>{b.unit}</span></p>
+                  <div className="vf-bar thin" style={{ marginTop: 8 }}><div className="vf-bar-fill" style={{ width: `${pct}%`, background: "var(--blue)" }} /></div>
+                  <p style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 700, marginTop: 4 }}>Varsity: {b.varsity}{b.unit}</p>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Coach Screen ─────────────────────────────────────────────────────────────
+
+function CoachScreen({ state, onSend, busy }: { state: AppState; onSend: (p: string) => Promise<void>; busy: boolean }) {
+  const [draft, setDraft] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const QUICK = ["What should I work on today?", "I got tired after 20 minutes, what should I change?", "How do I improve my shooting this week?"];
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [state.coach.messages]);
+
+  const send = (text: string) => { if (text.trim()) { void onSend(text); setDraft(""); } };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }} className="scrollbar-none">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0 12px" }}>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--green-ghost)", border: "1px solid var(--green-line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Image src="/varfoot-mark.svg" alt="" width={18} height={18} />
+          </div>
+          <div>
+            <span style={{ fontSize: 15, fontWeight: 900 }}>Coach</span>
+            <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--green)", marginLeft: 8 }}>● Always on</span>
+          </div>
+        </div>
+
+        {state.coach.messages.length === 0 && (
+          <div className="vf-bubble-in">Hey! I&apos;m your VarFoot coach. Ask me anything about your training, gaps, or plan.</div>
+        )}
+        {state.coach.messages.map(m => (
+          <div key={m.id} className={m.role === "assistant" ? "vf-bubble-in" : "vf-bubble-out"}>{m.text}</div>
+        ))}
+        {busy && (
+          <div className="vf-bubble-in" style={{ display: "flex", gap: 5, alignItems: "center" }}>
+            {[0, 1, 2].map(i => <div key={i} className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-3)" }} />)}
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div style={{ display: "flex", gap: 8, padding: "4px 16px 8px", overflowX: "auto" }} className="scrollbar-none">
+        {QUICK.map(q => (
+          <button key={q} type="button" className="vf-chip" onClick={() => send(q)} style={{ fontSize: 11 }}>{q}</button>
+        ))}
+      </div>
+
+      <div style={{ padding: "8px 16px", paddingBottom: "max(16px, env(safe-area-inset-bottom))", borderTop: "1px solid var(--border-soft)", display: "flex", gap: 10, alignItems: "center", background: "var(--bg)" }}>
+        <input
+          className="vf-input-sm"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && send(draft)}
+          placeholder="Ask your coach…"
+          style={{ flex: 1, height: 42, borderRadius: 999 }}
+        />
+        <button type="button" onClick={() => send(draft)} disabled={!draft.trim() || busy}
+          style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--green)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, opacity: !draft.trim() || busy ? 0.5 : 1 }}>
+          <PaperPlaneTilt size={18} weight="fill" color="var(--green-ink)" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Benchmark Screen (push) ──────────────────────────────────────────────────
+
+function BenchmarkScreen({ state, goTab }: {
+  state: AppState; scores?: ReturnType<typeof getAssessmentScores>;
+  onBack?: () => void; go?: (s: Screen) => void; goTab: (t: RootTab) => void;
+}) {
+  const ALL: MetricKey[] = ["passing", "shooting", "dribbling", "firstTouch", "speed", "pushups", "plankSeconds", "wallSitSeconds"];
+  return (
+    <div className="slide-in" style={{ padding: "8px 16px 80px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-.04em", color: "var(--text-2)" }}>You&apos;re closer than you think.</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {ALL.map(m => <BenchmarkBar key={m} metric={m} value={state.assessment[m] as number} />)}
+      </div>
+      <button type="button" className="vf-btn" onClick={() => goTab("plan")}>
+        <Lightning size={16} weight="fill" /> Generate my plan ⚡
       </button>
     </div>
   );
 }
 
-// ─── Fuel Tab ─────────────────────────────────────────────────────────────────
-const mealSchema = z.object({ meal: z.enum(["Breakfast", "Lunch", "Snack", "Dinner"]), food: z.string().min(1) });
-type MealForm = z.infer<typeof mealSchema>;
+// ─── Session Detail Screen (push) ─────────────────────────────────────────────
 
-function FuelTab({ state, totals, onAddMeal }: {
-  state: AppState; totals: ReturnType<typeof getNutritionTotals>;
-  onAddMeal: (meal: FoodEntry["meal"], food: string) => void;
-}) {
-  const form = useForm<MealForm>({ resolver: zodResolver(mealSchema), defaultValues: { meal: "Breakfast", food: foodCatalog[0]?.name ?? "" } });
-  const calPct = Math.min(100, (totals.calories / state.nutrition.calorieTarget) * 100);
-  const protPct = Math.min(100, (totals.protein / state.nutrition.proteinTarget) * 100);
-  const carbPct = Math.min(100, (totals.carbs / state.nutrition.carbTarget) * 100);
-  const fatPct = Math.min(100, (totals.fat / state.nutrition.fatTarget) * 100);
+function SessionScreen({ state, go }: { state: AppState; onBack?: () => void; go: (s: Screen) => void }) {
+  const today = state.plan.weeks.flatMap(w => w.sessions).find(s => s.status === "today") ?? state.plan.weeks[0]?.sessions[0];
+  const { completedDrillIndexes, currentDrillIndex } = state.ui.sessionProgress;
+  const completedCount = completedDrillIndexes.length;
+  const progressPct = Math.max(0, Math.min(100, (completedCount / SESSION_DRILLS.length) * 100));
+  const resumeIndex = getNextQueuedDrillIndex(completedDrillIndexes);
 
   return (
-    <div className="tab-enter space-y-3 px-4 pb-6 pt-3">
-      <div>
-        <h2 className="text-[26px] font-black tracking-[-0.05em]">Fuel</h2>
-        <p className="text-[13px] text-[color:var(--muted)]">Today&apos;s nutrition</p>
+    <div className="slide-in" style={{ padding: "8px 16px 100px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <HiCard>
+        <Eyebrow tone="green">Focus</Eyebrow>
+        <h2 style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-.03em", marginTop: 4 }}>{today?.title ?? "Dribbling + Finishing"}</h2>
+        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+          <span className="vf-chip">3 drills</span>
+          <span className="vf-chip">~35 min</span>
+        </div>
+        <div className="vf-bar" style={{ marginTop: 10 }}><div className="vf-bar-fill" style={{ width: `${progressPct}%` }} /></div>
+        <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700, marginTop: 4 }}>{completedCount} of 3 complete</p>
+      </HiCard>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {SESSION_DRILLS.map((drill, idx) => {
+          const isDone = completedDrillIndexes.includes(idx);
+          const isNow = !isDone && idx === currentDrillIndex;
+          return (
+            <div key={drill.name} className={isNow ? "vf-card-hi" : "vf-card"} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+              onClick={() => go({ id: "drill", idx })}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: isDone ? "var(--green-dim)" : isNow ? "var(--green-ghost)" : "var(--elev)", border: `2px solid ${isDone ? "var(--green-dim)" : isNow ? "var(--green)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>
+                {isDone ? <Check size={14} weight="bold" color="var(--green)" /> : <span style={{ color: isNow ? "var(--green)" : "var(--text-3)" }}>{idx + 1}</span>}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 900, color: "var(--text)" }}>{drill.name}</p>
+                <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600 }}>{drill.focus} · 3 sets</p>
+              </div>
+              {isDone && <span className="vf-chip" style={{ fontSize: 10 }}>Done</span>}
+              {isNow && <span className="vf-chip on" style={{ fontSize: 10 }}>Start</span>}
+            </div>
+          );
+        })}
       </div>
 
-      <Card>
-        <Eyebrow tone="green">Calories</Eyebrow>
-        <div className="mt-2 flex items-end gap-2 leading-none">
-          <span className="text-[44px] font-black tracking-[-0.08em]">{totals.calories}</span>
-          <span className="mb-1.5 text-[13px] text-[color:var(--dim)]">/ {state.nutrition.calorieTarget}</span>
+      <FlatCard>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <ChatsCircle size={18} weight="fill" color="var(--text-3)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, fontStyle: "italic", lineHeight: 1.4 }}>
+            Quality over speed today. Plant your standing foot and follow through low.
+          </p>
         </div>
-        <div className="mt-3 h-[7px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${calPct}%`, background: "var(--green)" }} />
-        </div>
-        <p className="mt-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--dim)]">kcal daily target</p>
-      </Card>
+      </FlatCard>
 
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Protein", val: totals.protein, target: state.nutrition.proteinTarget, pct: protPct, color: "var(--blue)" },
-          { label: "Carbs", val: totals.carbs, target: state.nutrition.carbTarget, pct: carbPct, color: "var(--gold)" },
-          { label: "Fat", val: totals.fat, target: state.nutrition.fatTarget, pct: fatPct, color: "var(--muted)" },
-        ].map(({ label, val, target, pct, color }) => (
-          <SoftCard key={label} className="py-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--dim)]">{label}</p>
-            <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.06em]">{val}<span className="text-[11px] font-bold text-[color:var(--dim)]">g</span></p>
-            <div className="mt-2 h-[4px] overflow-hidden rounded-full bg-[rgba(245,236,216,0.06)]">
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
-            </div>
-            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.1em] text-[color:var(--dim)]">{target}g target</p>
-          </SoftCard>
+      <div className="vf-footer" style={{ position: "static" }}>
+        <button type="button" className="vf-btn" onClick={() => go({ id: "drill", idx: resumeIndex === -1 ? SESSION_DRILLS.length - 1 : resumeIndex })}>
+          {completedCount === 0 ? "Start session" : "Resume session"} <ArrowRight size={16} weight="bold" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Active Drill Screen (push) ────────────────────────────────────────────────
+
+function DrillScreen({
+  idx,
+  state,
+  onCompleteDrill,
+  onSkipDrill,
+}: {
+  idx: number;
+  state: AppState;
+  onBack?: () => void;
+  onCompleteDrill: (drillIndex: number) => void;
+  onSkipDrill: () => void;
+  go?: (s: Screen) => void;
+}) {
+  const [set, setSet] = useState(1);
+  const [goals, setGoals] = useState(7);
+  const drill = SESSION_DRILLS[idx] ?? SESSION_DRILLS[0];
+  const totalSets = 3;
+  const completedDrillIndexes = state.ui.sessionProgress.completedDrillIndexes;
+  const imgSrc = drill.diagram;
+  const isLastPendingDrill = completedDrillIndexes.length >= SESSION_DRILLS.length - 1 && !completedDrillIndexes.includes(idx);
+
+  const logSet = () => {
+    if (set < totalSets) { setSet(s => s + 1); setGoals(7); }
+    else onCompleteDrill(idx);
+  };
+
+  return (
+    <div className="slide-in" style={{ padding: "8px 16px 100px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        {Array.from({ length: totalSets }, (_, i) => (
+          <div key={i} className={cn("vf-pip", i < set - 1 && "done", i === set - 1 && "active")} style={{ width: 12, height: 12 }} />
         ))}
       </div>
 
+      <div>
+        <Eyebrow tone="green">{drill.focus}</Eyebrow>
+        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-.05em", marginTop: 4 }}>{drill.name}</h1>
+      </div>
+
+      <div className="vf-block" style={{ height: 200, width: "100%" }}>
+        <Image src={imgSrc} alt={`${drill.name} diagram`} fill style={{ objectFit: "contain", padding: 8 }} />
+      </div>
+
+      <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, lineHeight: 1.5 }}>{drill.instructions}</p>
+
       <Card>
-        <Eyebrow tone="green">Log food</Eyebrow>
-        <form className="mt-3 space-y-3" onSubmit={form.handleSubmit(v => { onAddMeal(v.meal, v.food); form.reset({ meal: v.meal, food: v.food }); })}>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--muted)]">
-              Meal <select className="paper-field h-10 px-3 text-[13px]" {...form.register("meal")}>
-                <option>Breakfast</option><option>Lunch</option><option>Snack</option><option>Dinner</option>
-              </select>
-            </label>
-            <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--muted)]">
-              Food <select className="paper-field h-10 px-3 text-[13px]" {...form.register("food")}>
-                {foodCatalog.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
-              </select>
-            </label>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+          <p style={{ fontSize: 14, fontWeight: 900 }}>Set {set} of {totalSets}</p>
+          <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 700 }}>Target: {drill.target}</p>
+        </div>
+        <p style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600, marginBottom: 10 }}>Goals / clean reps this set:</p>
+        <div className="vf-stepper">
+          <button type="button" className="vf-stepper-btn" onClick={() => setGoals(g => Math.max(0, g - 1))}>−</button>
+          <div className="vf-stepper-val">
+            <span style={{ fontSize: 30, fontWeight: 900, fontFamily: "var(--font-plex-mono)" }}>{goals}</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {foodCatalog.slice(0, 4).map(item => (
-              <button key={item.name} type="button" onClick={() => form.setValue("food", item.name)}
-                className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black">{item.name}</button>
-            ))}
-          </div>
-          <button type="submit" className="paper-button-primary flex h-10 w-full items-center justify-center rounded-[12px] text-[13px]">
-            Add entry
-          </button>
-        </form>
+          <button type="button" className="vf-stepper-btn" onClick={() => setGoals(g => Math.min(10, g + 1))}>+</button>
+        </div>
       </Card>
 
-      {state.nutrition.entries.length > 0 && (
-        <div className="space-y-2">
-          <Eyebrow>{state.nutrition.entries.length} {state.nutrition.entries.length === 1 ? "entry" : "entries"} today</Eyebrow>
-          {state.nutrition.entries.slice(0, 10).map(entry => (
-            <SoftCard key={entry.id} className="py-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-black">{entry.name}</p>
-                  <p className="text-[11px] text-[color:var(--muted)]">{entry.meal} · {entry.portion}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[14px] font-black" style={{ color: "var(--green)" }}>{entry.calories} kcal</p>
-                  <p className="text-[11px] text-[color:var(--dim)]">{entry.protein}g protein</p>
-                </div>
-              </div>
-            </SoftCard>
-          ))}
-        </div>
-      )}
+      <div className="vf-footer" style={{ position: "static", gap: 10 }}>
+        <button type="button" className="vf-btn-ghost vf-btn-sm" style={{ flex: "none" }} onClick={onSkipDrill}>Skip</button>
+        <button type="button" className="vf-btn" style={{ flex: 1 }} onClick={logSet}>
+          {set < totalSets ? `Log set ${set}` : isLastPendingDrill ? "Finish session" : "Finish drill"}
+        </button>
+      </div>
     </div>
   );
 }
 
-// ─── Coach Tab ────────────────────────────────────────────────────────────────
-const coachSchema = z.object({ prompt: z.string().min(2).max(240) });
-type CoachForm = z.infer<typeof coachSchema>;
+// ─── Session Recap Screen (push) ──────────────────────────────────────────────
 
-function CoachTab({ state, onSend, busy }: { state: AppState; onSend: (p: string) => Promise<void>; busy: boolean }) {
-  const form = useForm<CoachForm>({ resolver: zodResolver(coachSchema), defaultValues: { prompt: "" } });
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [state.coach.messages, busy]);
+function RecapScreen({
+  drillName,
+  completedCount,
+  state,
+  onContinue,
+  goTab,
+}: {
+  drillName: string;
+  completedCount: number;
+  state: AppState;
+  onBack?: () => void;
+  onContinue: () => void;
+  goTab: (t: RootTab) => void;
+}) {
+  const firstName = (state.assessment.name || "Athlete").split(" ")[0];
+  const completedAll = completedCount >= SESSION_DRILLS.length;
+  return (
+    <div className="slide-in" style={{ padding: "24px 16px 80px", display: "flex", flexDirection: "column", gap: 16, alignItems: "center", textAlign: "center" }}>
+      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--green-ghost)", border: "2px solid var(--green-line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Check size={32} weight="bold" color="var(--green)" />
+      </div>
+      <div>
+        <p style={{ fontSize: 14, fontWeight: 800, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".1em" }}>{completedAll ? "Session complete" : "Drill logged"}</p>
+        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-.05em", marginTop: 4 }}>Nice work, {firstName}.</h1>
+        <p style={{ fontSize: 14, color: "var(--text-2)", fontWeight: 600, marginTop: 4 }}>
+          {completedAll ? `You finished ${drillName} and wrapped all 3 drills.` : `You finished ${drillName}. ${SESSION_DRILLS.length - completedCount} drill${SESSION_DRILLS.length - completedCount === 1 ? "" : "s"} left in this session.`}
+        </p>
+      </div>
+
+      <div style={{ width: "100%", display: "flex", gap: 10 }}>
+        {[
+          { label: "Shooting", delta: "+2" },
+          { label: "Dribbling", delta: "+1" },
+          { label: "Streak 🔥", delta: "+1" },
+        ].map(({ label, delta }) => (
+          <FlatCard key={label} style={{ flex: 1, textAlign: "center" }}>
+            <p style={{ fontSize: 12, color: "var(--green)", fontWeight: 900 }}>{delta}</p>
+            <p style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 700, marginTop: 2 }}>{label}</p>
+          </FlatCard>
+        ))}
+      </div>
+
+      <FlatCard style={{ width: "100%", textAlign: "left" }}>
+        <Eyebrow tone="green">Best set</Eyebrow>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginTop: 6, lineHeight: 1.4 }}>Best {drillName} set yet. That&apos;s varsity-level on your strong foot.</p>
+      </FlatCard>
+
+      <FlatCard style={{ width: "100%", textAlign: "left" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <ChatsCircle size={16} weight="fill" color="var(--text-3)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, fontStyle: "italic", lineHeight: 1.4 }}>
+            {completedAll ? "Tomorrow we hit the weak foot. That's your ticket to varsity." : "Keep the same tempo on the next drill so the session stays sharp from start to finish."}
+          </p>
+        </div>
+      </FlatCard>
+
+      <button type="button" className="vf-btn" style={{ width: "100%" }} onClick={() => (completedAll ? goTab("home") : onContinue())}>{completedAll ? "Done" : "Back to session"}</button>
+    </div>
+  );
+}
+
+// ─── Skill Detail Screen (push) ───────────────────────────────────────────────
+
+function SkillScreen({ name, state, goTab }: { name: string; state: AppState; onBack?: () => void; goTab: (t: RootTab) => void }) {
+  const entry = Object.entries(assessmentBenchmarks).find(([, b]) => b.label === name);
+  const [metric, bm] = entry ?? Object.entries(assessmentBenchmarks)[0];
+  const value = state.assessment[metric as MetricKey] as number;
+  const pct = bm.higherIsBetter ? Math.min(100, (value / bm.varsity) * 100) : Math.min(100, (bm.freshman / Math.max(value, 0.1)) * 100);
+  const gap = bm.higherIsBetter ? bm.varsity - value : value - bm.varsity;
 
   return (
-    <div className="tab-enter flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-2 scrollbar-none">
-        <div className="mb-3">
-          <h2 className="text-[26px] font-black tracking-[-0.05em]">AI Coach</h2>
-          <p className="text-[13px] text-[color:var(--muted)]">Personalized to your gaps and plan</p>
+    <div className="slide-in" style={{ padding: "8px 16px 80px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <p className="vf-stat-n big" style={{ fontFamily: "var(--font-plex-mono)" }}>{value}<span style={{ fontSize: 14, color: "var(--text-3)" }}>{bm.unit}</span></p>
+            <p className="vf-stat-l">{bm.label}</p>
+            <p className="vf-delta" style={{ marginTop: 4 }}>+3 this month</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>Varsity target</p>
+            <p style={{ fontSize: 22, fontWeight: 900, fontFamily: "var(--font-plex-mono)" }}>{bm.varsity}{bm.unit}</p>
+            {gap > 0 && <p style={{ fontSize: 11, color: "var(--red)", fontWeight: 800 }}>{gap.toFixed(1)} to close</p>}
+          </div>
         </div>
+        <div className="vf-bar" style={{ marginTop: 10 }}><div className="vf-bar-fill" style={{ width: `${pct}%` }} /></div>
+      </Card>
 
-        {state.coach.messages.length === 0 && (
-          <Card className="py-7 text-center">
-            <ChatsCircle size={44} weight="light" style={{ margin: "0 auto", color: "var(--dim)" }} />
-            <p className="mt-3 text-[16px] font-black tracking-[-0.03em]">Ask your coach anything</p>
-            <p className="mt-1.5 text-[13px] leading-5 text-[color:var(--muted)]">Training advice, nutrition tips, plan adjustments — specific to your benchmark scores.</p>
-          </Card>
-        )}
-
-        <div className="space-y-2.5">
-          {state.coach.messages.map(msg => (
-            <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[84%] rounded-[18px] px-4 py-3 text-[14px] leading-[1.45]", msg.role === "user" ? "border" : "paper-card-soft")}
-                style={msg.role === "user" ? { background: "rgba(132,181,109,0.16)", borderColor: "rgba(132,181,109,0.28)", color: "var(--foreground)" } : undefined}>
-                {msg.text}
-              </div>
+      <Card>
+        <Eyebrow>How it&apos;s measured</Eyebrow>
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div className="vf-ico neutral"><Target size={16} weight="bold" color="var(--text-3)" /></div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 800 }}>{bm.label}</p>
+              <p style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Your score: {value}{bm.unit}</p>
             </div>
-          ))}
-          {busy && (
-            <div className="flex justify-start">
-              <div className="paper-card-soft rounded-[18px] px-4 py-3">
-                <div className="flex gap-1.5">
-                  {[0, 1, 2].map(i => <span key={i} className="bounce-dot h-2 w-2 rounded-full bg-[color:var(--dim)]" />)}
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <Eyebrow>Recent results</Eyebrow>
+        {[["Mon Jun 8", "Best result"], ["Thu Jun 4", "Good effort"], ["Mon Jun 1", "Starting point"]].map(([date, result]) => (
+          <div key={date} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-soft)" }}>
+            <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>{date}</span>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>{result}</span>
+          </div>
+        ))}
+      </Card>
+
+      <HiCard>
+        <Eyebrow tone="green">Close the gap</Eyebrow>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginTop: 4 }}>2 {name} drills added to this week&apos;s plan.</p>
+        <button type="button" className="vf-btn" style={{ marginTop: 10 }} onClick={() => goTab("plan")}>Go to plan</button>
+      </HiCard>
+    </div>
+  );
+}
+
+// ─── Nutrition Screen (push) ──────────────────────────────────────────────────
+
+function NutritionScreen({ state, totals, go }: {
+  state: AppState; totals: ReturnType<typeof getNutritionTotals>;
+  go: (s: Screen) => void; onAddMeal?: (meal: FoodEntry["meal"], food: string) => void;
+}) {
+  const goal = state.nutrition.calorieTarget || 2000;
+  const pct = Math.min(1, totals.calories / goal);
+  const macros = [
+    { name: "Protein", g: totals.protein, target: state.nutrition.proteinTarget || 120, color: "var(--green)" },
+    { name: "Carbs",   g: totals.carbs,   target: state.nutrition.carbTarget   || 200, color: "var(--yellow)" },
+    { name: "Fat",     g: totals.fat,     target: state.nutrition.fatTarget    || 60,  color: "var(--blue)" },
+  ];
+
+  return (
+    <div className="slide-in" style={{ padding: "8px 16px 80px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <Ring size={100} pct={pct} sw={9}>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ fontSize: 20, fontWeight: 900, fontFamily: "var(--font-plex-mono)", lineHeight: 1 }}>{totals.calories}</p>
+              <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text-3)" }}>kcal</p>
+            </div>
+          </Ring>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            {macros.map(({ name, g, target, color }) => (
+              <div key={name}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-2)" }}>{name}</span>
+                  <span style={{ fontSize: 11, fontFamily: "var(--font-plex-mono)", fontWeight: 700, color }}>{g}g</span>
                 </div>
+                <div className="vf-bar thin"><div className="vf-bar-fill" style={{ width: `${Math.min(100, (g / target) * 100)}%`, background: color }} /></div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {!busy && (
-          <div className="mt-4 flex flex-wrap gap-1.5 pb-2">
-            {coachPromptLibrary.map(p => (
-              <button key={p} type="button" onClick={() => form.setValue("prompt", p)}
-                className="paper-chip rounded-full px-3 py-1.5 text-[10px] font-black">{p}</button>
             ))}
           </div>
-        )}
-        <div ref={endRef} />
+        </div>
+      </Card>
+
+      <div>
+        <Eyebrow>Today&apos;s log</Eyebrow>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 8 }}>
+          {state.nutrition.entries.map(entry => (
+            <button key={entry.id} type="button" onClick={() => go({ id: "fooddetail", entryId: entry.id })}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: "none", borderLeft: "none", borderRight: "none", borderBottom: "1px solid var(--border-soft)", background: "none", cursor: "pointer", textAlign: "left", width: "100%" }}>
+              <div className="vf-ico neutral"><BowlFood size={18} weight="fill" color="var(--text-2)" /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{entry.name}</p>
+                <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600 }}>{entry.meal} · {entry.portion}</p>
+              </div>
+              <p style={{ fontSize: 14, fontFamily: "var(--font-plex-mono)", fontWeight: 700, color: "var(--green)", flexShrink: 0 }}>{entry.calories}</p>
+            </button>
+          ))}
+          {state.nutrition.entries.length === 0 && (
+            <p style={{ fontSize: 13, color: "var(--text-3)", fontWeight: 600, padding: "12px 0" }}>No food logged today. Add your first meal.</p>
+          )}
+        </div>
       </div>
 
-      <div className="shrink-0 px-4 pt-3 pb-4"
-        style={{ borderTop: "1px solid rgba(245,236,216,0.07)", background: "rgba(10,11,8,0.94)", backdropFilter: "blur(16px)" }}>
-        <form className="flex items-end gap-2"
-          onSubmit={form.handleSubmit(async v => { await onSend(v.prompt); form.reset({ prompt: "" }); })}>
-          <textarea className="paper-field min-h-[42px] flex-1 resize-none px-3 py-2.5 text-[14px] leading-5"
-            placeholder="Ask your coach…" rows={1} {...form.register("prompt")} />
-          <button type="submit" disabled={busy}
-            className="paper-button-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] text-[16px]">
-            ↑
+      <button type="button" className="vf-btn" onClick={() => go({ id: "foodlog" })}>
+        <Plus size={16} weight="bold" /> Log food by ingredient
+      </button>
+    </div>
+  );
+}
+
+// ─── Food Logger Screen (push) ────────────────────────────────────────────────
+
+function FoodLogScreen({ onBack, onAdd }: { onBack: () => void; onAdd: (meal: FoodEntry["meal"], food: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<typeof foodCatalog[number] | null>(null);
+  const [grams, setGrams] = useState(100);
+  const [meal, setMeal] = useState<FoodEntry["meal"]>("Lunch");
+  const recent = foodCatalog.slice(0, 6);
+
+  const filtered = search.trim()
+    ? foodCatalog.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
+    : recent;
+
+  const item = selected ?? foodCatalog[0];
+  const factor = grams / 100;
+  const liveKcal = Math.round((item?.calories ?? 165) * factor);
+  const liveProtein = Math.round((item?.protein ?? 31) * factor);
+  const liveCarbs = Math.round((item?.carbs ?? 0) * factor);
+  const liveFat = Math.round((item?.fat ?? 3.6) * factor);
+
+  const handleAdd = () => {
+    if (item) { onAdd(meal, item.name); onBack(); }
+  };
+
+  return (
+    <div className="slide-in" style={{ padding: "8px 16px 100px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="vf-seg">
+        {(["Breakfast", "Lunch", "Snack", "Dinner"] as FoodEntry["meal"][]).map(m => (
+          <button key={m} type="button" className={cn("vf-seg-btn", meal === m && "on")} onClick={() => setMeal(m)}>{m}</button>
+        ))}
+      </div>
+
+      <div style={{ position: "relative" }}>
+        <input className="vf-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ingredients…" />
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {filtered.map(f => (
+          <button key={f.name} type="button" className={cn("vf-chip", selected?.name === f.name && "on")} onClick={() => { setSelected(f); setSearch(""); }}>
+            {f.name}
           </button>
-        </form>
+        ))}
+      </div>
+
+      {item && (
+        <FlatCard>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 900 }}>{item.name}</p>
+              <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>per 100g baseline</p>
+            </div>
+            <div className="vf-ico"><BowlFood size={20} weight="fill" color="var(--green)" /></div>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600, marginTop: 6, lineHeight: 1.4 }}>{item.portion}</p>
+        </FlatCard>
+      )}
+
+      <div>
+        <p style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--text-2)", marginBottom: 8 }}>Portion (grams)</p>
+        <div className="vf-stepper">
+          <button type="button" className="vf-stepper-btn" onClick={() => setGrams(g => Math.max(10, g - 10))}>−</button>
+          <div className="vf-stepper-val">
+            <span style={{ fontSize: 28, fontWeight: 900, fontFamily: "var(--font-plex-mono)" }}>{grams}</span>
+            <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>g</span>
+          </div>
+          <button type="button" className="vf-stepper-btn" onClick={() => setGrams(g => g + 10)}>+</button>
+        </div>
+      </div>
+
+      <FlatCard>
+        <Eyebrow>Live macros</Eyebrow>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
+          {[
+            { label: "kcal",    val: liveKcal,    color: "var(--green)" },
+            { label: "protein", val: `${liveProtein}g`, color: "var(--green)" },
+            { label: "carbs",   val: `${liveCarbs}g`,  color: "var(--yellow)" },
+            { label: "fat",     val: `${liveFat}g`,    color: "var(--blue)" },
+          ].map(({ label, val, color }) => (
+            <div key={label} style={{ textAlign: "center" }}>
+              <p style={{ fontSize: 16, fontWeight: 900, fontFamily: "var(--font-plex-mono)", color }}>{val}</p>
+              <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--text-3)", marginTop: 2 }}>{label}</p>
+            </div>
+          ))}
+        </div>
+      </FlatCard>
+
+      <div className="vf-footer" style={{ position: "static" }}>
+        <button type="button" className="vf-btn" onClick={handleAdd}>
+          <Plus size={16} weight="bold" /> Add to log
+        </button>
       </div>
     </div>
   );
 }
 
-// ─── Loading Screen ───────────────────────────────────────────────────────────
-function LoadingScreen({ message }: { message: string }) {
+// ─── Food Detail Screen (push) ────────────────────────────────────────────────
+
+function FoodDetailScreen({ entryId, state, onBack, onDelete }: { entryId: string; state: AppState; onBack: () => void; onDelete: (id: string) => void }) {
+  const entry = state.nutrition.entries.find(e => e.id === entryId);
+  if (!entry) return <div style={{ padding: 20 }}><p style={{ color: "var(--text-2)" }}>Food not found.</p></div>;
+  const pct = (cal: number) => Math.round((cal / Math.max(entry.calories, 1)) * 100);
   return (
-    <div className="phone-shell" style={{ background: "var(--background)" }}>
-      <div className="phone-column" style={{ justifyContent: "center", alignItems: "center", gap: 16, padding: 24 }}>
-        <div className="noise-layer" />
-        <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-          <div className="flex h-[60px] w-[60px] items-center justify-center rounded-[20px] border"
-            style={{ borderColor: "rgba(132,181,109,0.24)", background: "rgba(26,28,18,0.96)" }}>
-            <Image src="/varfoot-mark.svg" alt="" width={34} height={34} />
+    <div className="slide-in" style={{ padding: "8px 16px 100px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <Card style={{ textAlign: "center", display: "flex", justifyContent: "center" }}>
+        <Ring size={100} pct={1} sw={9}>
+          <div>
+            <p style={{ fontSize: 22, fontWeight: 900, fontFamily: "var(--font-plex-mono)" }}>{entry.calories}</p>
+            <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text-3)" }}>kcal</p>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[color:var(--green)]">VarFoot</p>
-          <p className="text-[20px] font-black tracking-[-0.04em]">{message}</p>
-          <div className="flex gap-1.5">
-            <span className="bounce-dot h-2 w-2 rounded-full bg-[color:var(--green)]" />
-            <span className="bounce-dot h-2 w-2 rounded-full bg-[color:var(--green)]" />
-            <span className="bounce-dot h-2 w-2 rounded-full bg-[color:var(--green)]" />
+        </Ring>
+      </Card>
+      <Card>
+        <Eyebrow>Macro split</Eyebrow>
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            { label: "Protein", g: entry.protein, color: "var(--green)" },
+            { label: "Carbs",   g: entry.carbs,   color: "var(--yellow)" },
+            { label: "Fat",     g: entry.fat,      color: "var(--blue)" },
+          ].map(({ label, g, color }) => (
+            <div key={label}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontSize: 12, fontWeight: 800 }}>{label}</span>
+                <span style={{ fontSize: 12, fontFamily: "var(--font-plex-mono)", fontWeight: 700, color }}>{g}g</span>
+              </div>
+              <div className="vf-bar thin"><div className="vf-bar-fill" style={{ width: `${pct(g * 4)}%`, background: color }} /></div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <div style={{ padding: "6px 0" }}>
+        <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 700 }}>Logged · {entry.meal}</p>
+      </div>
+      <div className="vf-footer" style={{ position: "static", gap: 10 }}>
+        <button type="button" className="vf-btn-ghost vf-btn-sm" style={{ flex: "none" }} onClick={onBack}>Back</button>
+        <button type="button" style={{ flex: 1, height: 46, borderRadius: "var(--r-sm)", border: "1px solid rgba(255,107,94,.3)", background: "rgba(255,107,94,.08)", color: "var(--red)", fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+          onClick={() => { onDelete(entryId); onBack(); }}>
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Profile Sheet ────────────────────────────────────────────────────────────
+
+function ProfileSheet({ state, localMode, syncState, onSignOut, onLoadDemo, onReset, onClose }: {
+  state: AppState; localMode: boolean; syncState: string;
+  onSignOut: () => Promise<void>; onLoadDemo: () => void; onReset: () => void; onClose: () => void;
+}) {
+  const labels: Record<string, string> = { local: "Local only", loading: "Loading…", saving: "Saving…", synced: "Cloud synced", error: "Sync error", "signed-out": "Signed out" };
+  const initials = (state.assessment.name || "VA").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "VA";
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.6)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ width: "100%", maxWidth: 430, margin: "0 auto", borderRadius: "28px 28px 0 0", border: "1px solid var(--border-soft)", background: "rgba(10,10,11,.98)", paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 8px" }}>
+          <div style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(245,245,246,.18)" }} />
+        </div>
+        <div style={{ padding: "12px 20px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--elev)", border: "1px solid var(--green-line)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "var(--text)", flexShrink: 0 }}>{initials}</div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 19, fontWeight: 900, letterSpacing: "-.04em" }}>{state.assessment.name || "Athlete"}</p>
+              <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{state.assessment.school || "—"} · {state.assessment.position || "—"}</p>
+              <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".18em", color: "var(--text-3)", marginTop: 2 }}>{labels[syncState] ?? syncState}</p>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button type="button" className="vf-btn" onClick={onLoadDemo}>Load demo athlete</button>
+            <button type="button" className="vf-btn-ghost" onClick={onReset}>Reset all data</button>
+            {!localMode && (
+              <button type="button" onClick={() => void onSignOut()}
+                style={{ height: 46, borderRadius: "var(--r-sm)", border: "1px solid rgba(255,107,94,.26)", background: "rgba(255,107,94,.08)", color: "var(--red)", fontWeight: 900, fontSize: 14, cursor: "pointer" }}>
+                Sign out
+              </button>
+            )}
+            <button type="button" onClick={onClose} style={{ height: 40, background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".14em", color: "var(--text-3)" }}>Close</button>
           </div>
         </div>
       </div>
@@ -1091,37 +1373,72 @@ function LoadingScreen({ message }: { message: string }) {
   );
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
+// ─── App ──────────────────────────────────────────────────────────────────────
+
 function App() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const localMode = !supabase;
+  const localMode = !hasSupabaseEnv();
 
-  const [state, setState] = useState<AppState>(() => localMode ? loadState() : createBlankState());
-  const [navTab, setNavTab] = useState<NavTab>("home");
+  const [state, setState] = useState<AppState>(() => loadState() ?? createBlankState());
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(!localMode);
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
+  const [syncState, setSyncState] = useState(localMode ? "local" : "signed-out");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
   const [coachLoading, setCoachLoading] = useState(false);
   const [planSummary, setPlanSummary] = useState<string | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(!localMode);
-  const [bootstrapLoading, setBootstrapLoading] = useState(!localMode);
-  const [demoMode, setDemoMode] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [syncState, setSyncState] = useState<"local" | "loading" | "saving" | "synced" | "error" | "signed-out">(
-    localMode ? "local" : "loading"
-  );
-  const saveTimerRef = useRef<number | null>(null);
+
+  // Stack-based navigation
+  const [stack, setStack] = useState<Screen[]>([{ id: "home" }]);
+  const [rootTab, setRootTab] = useState<RootTab>("home");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const current = stack[stack.length - 1];
+  const isRoot = stack.length === 1;
+
+  const go = useCallback((s: Screen) => { setStack(prev => [...prev, s]); }, []);
+  const replace = useCallback((s: Screen) => {
+    setStack((prev) => (prev.length > 0 ? [...prev.slice(0, -1), s] : [s]));
+  }, []);
+  const back = useCallback(() => { setStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev); }, []);
+  const goTab = useCallback((tab: RootTab) => {
+    setRootTab(tab);
+    setStack([{ id: tab }]);
+  }, []);
 
   // Auth listener
   useEffect(() => {
     if (!supabase) return;
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session); setAuthLoading(false);
-      if (!data.session) { setBootstrapLoading(false); setSyncState("signed-out"); }
-    });
+    void withTimeout(
+      supabase.auth.getSession(),
+      AUTH_TIMEOUT_MS,
+      "Supabase auth check timed out.",
+    )
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+        if (!data.session) {
+          setBootstrapLoading(false);
+          setSyncState("signed-out");
+        }
+      })
+      .catch((err) => {
+        if (!active) return;
+        setSession(null);
+        setBootstrapLoading(false);
+        setSyncState("signed-out");
+        setAuthError(err instanceof Error ? err.message : "Unable to reach Supabase.");
+      })
+      .finally(() => {
+        if (active) {
+          setAuthLoading(false);
+        }
+      });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, next) => {
       if (!active) return;
       setSession(next); setAuthLoading(false); setAuthError(null);
@@ -1133,19 +1450,27 @@ function App() {
   // Bootstrap remote state
   useEffect(() => {
     if (!supabase || !session) return;
-    const client = supabase, currentSession = session;
+    const client = supabase, s = session;
     let cancelled = false;
     void (async () => {
       setBootstrapLoading(true); setSyncState("loading");
       try {
-        await upsertRemoteProfile(client, currentSession);
-        const remote = await loadRemoteState(client, currentSession.user.id);
+        await withTimeout(
+          upsertRemoteProfile(client, s),
+          REMOTE_TIMEOUT_MS,
+          "Saving your profile to Supabase timed out.",
+        );
+        const remote = await withTimeout(
+          loadRemoteState(client, s.user.id),
+          REMOTE_TIMEOUT_MS,
+          "Loading your training data timed out.",
+        );
         if (cancelled) return;
         setState(remote ?? createBlankState()); setSyncState("synced");
       } catch (err) {
         if (cancelled) return;
         setAuthError(err instanceof Error ? err.message : "Unable to load cloud state.");
-        setState(createBlankState()); setSyncState("error");
+        setSyncState("error");
       } finally { if (!cancelled) setBootstrapLoading(false); }
     })();
     return () => { cancelled = true; };
@@ -1155,42 +1480,33 @@ function App() {
   useEffect(() => {
     if (localMode) { saveState(state); return; }
     if (!session || bootstrapLoading) return;
-    const client = supabase!, currentSession = session;
-    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(() => {
+    const client = supabase!, s = session;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
       void (async () => {
-        try { setSyncState("saving"); await upsertRemoteState(client, currentSession, state); saveState(state); setSyncState("synced"); }
+        try { setSyncState("saving"); await upsertRemoteState(client, s, state); saveState(state); setSyncState("synced"); }
         catch { saveState(state); setSyncState("error"); }
       })();
     }, 600);
-    return () => { if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current); };
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [bootstrapLoading, localMode, session, state, supabase]);
 
-  // Scroll to top on tab change
-  useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, [navTab]);
+  // Scroll to top on navigation
+  useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, [stack]);
 
   const scores = useMemo(() => getAssessmentScores(state.assessment), [state.assessment]);
   const nutritionTotals = useMemo(() => getNutritionTotals(state.nutrition.entries), [state.nutrition.entries]);
-  const selectedWeek = state.plan.weeks.find(w => w.week === state.selectedWeek) ?? state.plan.weeks[0];
 
   function patchState(updater: (prev: AppState) => AppState) { setState(updater); }
-
-  function updateAssessment(key: keyof AppState["assessment"], value: string) {
-    const numeric = ["pushups", "plankSeconds", "wallSitSeconds", "passing", "shooting", "dribbling", "firstTouch", "speed"];
-    patchState(prev => ({ ...prev, assessment: { ...prev.assessment, [key]: numeric.includes(key) ? Number(value) : value } }));
-  }
 
   async function generatePlan(overrideState?: AppState) {
     setPlanLoading(true);
     try {
-      const res = await fetch("/api/plan", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: overrideState ?? state }),
-      });
+      const res = await fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: overrideState ?? state }) });
       const payload = await res.json() as { generatedAt: string; weeks: AppState["plan"]["weeks"]; summary?: string };
       patchState(prev => ({ ...prev, onboardingComplete: true, selectedWeek: 1, plan: { generatedAt: payload.generatedAt, weeks: payload.weeks } }));
       if (payload.summary && !payload.summary.startsWith("Plan ready")) setPlanSummary(payload.summary);
-      setNavTab("plan");
+      goTab("plan");
     } finally { setPlanLoading(false); }
   }
 
@@ -1198,11 +1514,12 @@ function App() {
     const assessment: AppState["assessment"] = {
       name: data.name, age: data.age, school: data.school, position: data.position,
       seasonGoal: data.seasonGoal, height: "", weight: "",
-      pushups: Number(data.pushups), plankSeconds: Number(data.plankSeconds), wallSitSeconds: Number(data.wallSitSeconds),
-      passing: Number(data.passing), shooting: Number(data.shooting), dribbling: Number(data.dribbling),
+      pushups: Number(data.pushups), plankSeconds: Number(data.plankSeconds),
+      wallSitSeconds: Number(data.wallSitSeconds), passing: Number(data.passing),
+      shooting: Number(data.shooting), dribbling: Number(data.dribbling),
       firstTouch: Number(data.firstTouch), speed: Number(data.speed),
     };
-    const newState: AppState = { ...state, assessment };
+    const newState = { ...state, assessment };
     patchState(() => newState);
     await generatePlan(newState);
   }
@@ -1213,43 +1530,67 @@ function App() {
     const userMsg = { id: crypto.randomUUID(), role: "user" as const, text: trimmed, createdAt: new Date().toISOString() };
     patchState(prev => ({ ...prev, coach: { ...prev.coach, messages: [...prev.coach.messages, userMsg] } }));
     try {
-      const res = await fetch("/api/coach", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: trimmed, state }),
-      });
+      const res = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: trimmed, state }) });
       const payload = await res.json() as { answer: string[]; timestamp: string };
-      patchState(prev => ({
-        ...prev, coach: {
-          ...prev.coach, draft: "",
-          messages: [...prev.coach.messages, { id: crypto.randomUUID(), role: "assistant" as const, text: payload.answer.join(" "), createdAt: payload.timestamp }],
-        },
-      }));
+      patchState(prev => ({ ...prev, coach: { ...prev.coach, draft: "", messages: [...prev.coach.messages, { id: crypto.randomUUID(), role: "assistant" as const, text: payload.answer.join(" "), createdAt: payload.timestamp }] } }));
     } finally { setCoachLoading(false); }
   }
 
   function addMeal(meal: FoodEntry["meal"], foodName: string) {
-    const match = foodCatalog.find(i => i.name === foodName) ?? foodCatalog[0];
+    const match = foodCatalog.find(f => f.name === foodName) ?? foodCatalog[0];
     if (!match) return;
     patchState(prev => ({ ...prev, nutrition: { ...prev.nutrition, entries: [addFoodEntry(match.name, match.portion, meal), ...prev.nutrition.entries] } }));
   }
 
-  function toggleDrill(name: string) {
-    patchState(prev => {
-      const saved = prev.library.savedDrills.includes(name);
-      return { ...prev, library: { savedDrills: saved ? prev.library.savedDrills.filter(d => d !== name) : [name, ...prev.library.savedDrills] } };
-    });
+  function deleteEntry(id: string) {
+    patchState(prev => ({ ...prev, nutrition: { ...prev.nutrition, entries: prev.nutrition.entries.filter(e => e.id !== id) } }));
   }
 
-  async function handleAuthSubmit(mode: AuthMode, email: string, password: string) {
+  function completeDrill(drillIndex: number) {
+    let nextDrillIndex = -1;
+    let completedCount = 0;
+
+    patchState((prev) => {
+      const completedDrillIndexes = Array.from(new Set([...prev.ui.sessionProgress.completedDrillIndexes, drillIndex])).sort((a, b) => a - b);
+      completedCount = completedDrillIndexes.length;
+      nextDrillIndex = getNextQueuedDrillIndex(completedDrillIndexes);
+      const sessionFinished = completedCount >= SESSION_DRILLS.length;
+
+      return {
+        ...prev,
+        plan: {
+          ...prev.plan,
+          weeks: sessionFinished ? advancePlanSessions(prev.plan.weeks) : prev.plan.weeks,
+        },
+        ui: {
+          ...prev.ui,
+          sessionProgress: sessionFinished
+            ? { currentDrillIndex: 0, completedDrillIndexes: [] }
+            : { currentDrillIndex: nextDrillIndex, completedDrillIndexes },
+        },
+      };
+    });
+
+    if (completedCount >= SESSION_DRILLS.length || nextDrillIndex === -1) {
+      replace({ id: "recap", drillName: SESSION_DRILLS[drillIndex]?.name ?? "your session", completedCount });
+      return;
+    }
+
+    replace({ id: "drill", idx: nextDrillIndex });
+  }
+
+  function skipDrill() {
+    replace({ id: "session" });
+  }
+
+  async function handleAuthSubmit(mode: "sign-in" | "sign-up", email: string, password: string) {
     if (!supabase) return;
     setAuthError(null); setAuthLoading(true);
     const result = mode === "sign-in"
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({ email, password });
     if (result.error) { setAuthError(result.error.message); setAuthLoading(false); return; }
-    if (mode === "sign-up" && !result.data.session) {
-      setAuthError("Account created! Check your email to confirm, then sign in."); setAuthLoading(false);
-    }
+    if (mode === "sign-up" && !result.data.session) { setAuthError("Account created! Check your email to confirm, then sign in."); setAuthLoading(false); }
   }
 
   async function handleSignOut() {
@@ -1260,53 +1601,60 @@ function App() {
     setDemoMode(false); setPlanSummary(null);
   }
 
-  function loadDemo() {
-    setState(createDemoState()); setDemoMode(true); setShowProfile(false); setNavTab("home"); setPlanSummary(null);
-  }
+  function loadDemo() { setState(createDemoState()); setDemoMode(true); setShowProfile(false); goTab("home"); setPlanSummary(null); }
+  function resetAll() { setState(createBlankState()); clearState(); setShowProfile(false); setDemoMode(false); setPlanSummary(null); }
 
-  function resetAll() {
-    setState(createBlankState()); clearState(); setShowProfile(false); setDemoMode(false); setPlanSummary(null);
-  }
-
-  const tabTitles: Record<NavTab, string> = { home: "VarFoot", stats: "Stats", plan: "Plan", fuel: "Fuel", coach: "Coach" };
-
-  // Gate: loading
+  // Gates
   if (!localMode && !demoMode && (authLoading || bootstrapLoading)) return <LoadingScreen message="Loading your profile…" />;
-  // Gate: auth
   if (!localMode && !demoMode && !session) return <AuthScreen loading={authLoading} error={authError} onSubmit={handleAuthSubmit} onDemo={loadDemo} />;
-  // Gate: onboarding (new user — no name and not completed)
   if (!state.onboardingComplete) return <OnboardingWizard onComplete={handleOnboardComplete} onSkip={loadDemo} />;
 
-  const isCoach = navTab === "coach";
+  const showNav = !["drill", "recap"].includes(current.id);
+  const isFixed = current.id === "coach";
+  const screenTitle: Partial<Record<Screen["id"], string>> = { benchmark: "Benchmark", session: "Today's Session", drill: "Active Drill", recap: "Session Recap", skill: "Skill Detail", nutrition: "Nutrition / Today", foodlog: "Log Food", fooddetail: "Food Detail" };
+
+  function renderScreen() {
+    switch (current.id) {
+      case "home":    return <HomeScreen state={state} scores={scores} nutritionTotals={nutritionTotals} go={go} goTab={goTab} onGeneratePlan={() => generatePlan()} planLoading={planLoading} />;
+      case "plan":    return <PlanScreen state={state} onSelectWeek={w => patchState(prev => ({ ...prev, selectedWeek: w }))} go={go} onGeneratePlan={() => generatePlan()} planLoading={planLoading} planSummary={planSummary} />;
+      case "track":   return <TrackScreen state={state} scores={scores} go={go} />;
+      case "coach":   return <CoachScreen state={state} onSend={sendCoach} busy={coachLoading} />;
+      case "benchmark": return <BenchmarkScreen state={state} scores={scores} onBack={back} go={go} goTab={goTab} />;
+      case "session": return <SessionScreen state={state} onBack={back} go={go} />;
+      case "drill":   return <DrillScreen key={current.idx} idx={current.idx} state={state} onBack={back} onCompleteDrill={completeDrill} onSkipDrill={skipDrill} />;
+      case "recap":   return <RecapScreen drillName={current.drillName} completedCount={current.completedCount} state={state} onBack={back} onContinue={back} goTab={goTab} />;
+      case "skill":   return <SkillScreen name={current.name} state={state} onBack={back} goTab={goTab} />;
+      case "nutrition": return <NutritionScreen state={state} totals={nutritionTotals} go={go} onAddMeal={addMeal} />;
+      case "foodlog": return <FoodLogScreen onBack={back} onAdd={addMeal} />;
+      case "fooddetail": return <FoodDetailScreen entryId={current.entryId} state={state} onBack={back} onDelete={deleteEntry} />;
+      default: return null;
+    }
+  }
+
+  const tabTitles: Record<RootTab, string> = { home: "VarFoot", plan: "Plan", track: "Progress", coach: "Coach" };
+  const title = isRoot ? tabTitles[rootTab] : (screenTitle[current.id] ?? "");
 
   return (
-    <div className="phone-shell" style={{ background: "var(--background)" }}>
+    <div className="phone-shell">
       <div className="phone-column">
-        <AppBar title={tabTitles[navTab]} playerName={state.assessment.name} syncState={syncState} onAvatarTap={() => setShowProfile(true)} />
+        {isRoot
+          ? <TopBar title={title} streak={12} onAvatarTap={() => setShowProfile(true)} />
+          : <BackBar title={title} onBack={back} />
+        }
 
         {authError && !showProfile && (
-          <div className="flex items-start gap-3 px-4 py-3 text-[13px]"
-            style={{ background: "rgba(215,121,109,0.08)", borderBottom: "1px solid rgba(215,121,109,0.14)", color: "var(--red)" }}>
-            <span className="flex-1">{authError}</span>
-            <button type="button" onClick={() => setAuthError(null)}><X size={16} /></button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: "rgba(255,107,94,.08)", borderBottom: "1px solid rgba(255,107,94,.14)", color: "var(--red)", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ flex: 1 }}>{authError}</span>
+            <button type="button" onClick={() => setAuthError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)" }}><X size={16} /></button>
           </div>
         )}
 
-        <div ref={contentRef} className={cn("content-area", isCoach ? "content-area-fixed" : "content-area-scroll")}>
-          {navTab === "home" && <HomeTab state={state} scores={scores} nutritionTotals={nutritionTotals} onGoToStats={() => setNavTab("stats")} onGoToPlan={() => setNavTab("plan")} onGeneratePlan={() => generatePlan()} planLoading={planLoading} />}
-          {navTab === "stats" && <StatsTab state={state} scores={scores} onAssessmentChange={updateAssessment} onGeneratePlan={() => generatePlan()} onToggleDrill={toggleDrill} planLoading={planLoading} />}
-          {navTab === "plan" && <PlanTab state={state} selectedWeek={selectedWeek} onSelectWeek={w => patchState(prev => ({ ...prev, selectedWeek: w }))} onGeneratePlan={() => generatePlan()} planLoading={planLoading} planSummary={planSummary} />}
-          {navTab === "fuel" && <FuelTab state={state} totals={nutritionTotals} onAddMeal={addMeal} />}
-          {navTab === "coach" && <CoachTab state={state} onSend={sendCoach} busy={coachLoading} />}
+        <div ref={contentRef} className={cn("content-area", isFixed ? "content-fixed" : "content-scroll")}>
+          {renderScreen()}
         </div>
 
-        <BottomNav active={navTab} onSelect={tab => { setNavTab(tab); }} />
-
-        {showProfile && (
-          <ProfileSheet state={state} localMode={localMode} syncState={syncState}
-            onSignOut={handleSignOut} onLoadDemo={loadDemo} onReset={resetAll}
-            onClose={() => setShowProfile(false)} />
-        )}
+        {showNav && <BottomNav active={rootTab} onSelect={goTab} />}
+        {showProfile && <ProfileSheet state={state} localMode={localMode} syncState={syncState} onSignOut={handleSignOut} onLoadDemo={loadDemo} onReset={resetAll} onClose={() => setShowProfile(false)} />}
       </div>
     </div>
   );

@@ -92,6 +92,10 @@ export type AppState = {
   };
   ui: {
     demoLoaded: boolean;
+    sessionProgress: {
+      currentDrillIndex: number;
+      completedDrillIndexes: number[];
+    };
   };
 };
 
@@ -223,6 +227,7 @@ export const drillLibrary = [
     duration: "8 min",
     equipment: "Ball + wall",
     target: "80 clean touches each foot",
+    diagram: "/drill-source/wall-pass.svg",
     instructions:
       "Start 2 steps from the wall. Pass with the inside of the foot, receive on the first touch, and alternate feet every 10 reps.",
   },
@@ -232,6 +237,7 @@ export const drillLibrary = [
     duration: "10 min",
     equipment: "Ball + 6 cones",
     target: "4 fast runs without losing control",
+    diagram: "/drill-source/cone-slalom.svg",
     instructions:
       "Set cones one stride apart. Use small touches on the way out and an explosive touch after each turn.",
   },
@@ -241,6 +247,7 @@ export const drillLibrary = [
     duration: "9 min",
     equipment: "Wall + ball",
     target: "6 straight clean reps per side",
+    diagram: "/drill-source/first-touch-rebound.svg",
     instructions:
       "Strike the wall harder than a normal pass. Cushion the rebound into space, then take the next touch forward.",
   },
@@ -250,6 +257,7 @@ export const drillLibrary = [
     duration: "12 min",
     equipment: "Goal + ball",
     target: "At least 7 of 10 on frame",
+    diagram: "/drill-source/shooting-ladder.svg",
     instructions:
       "Finish from the penalty spot, the top of the box, and a wider angle. Track placement, not power only.",
   },
@@ -259,6 +267,7 @@ export const drillLibrary = [
     duration: "8 min",
     equipment: "Open field",
     target: "6 x 20 yards with full recovery",
+    diagram: "/drill-source/recovery-sprint.svg",
     instructions:
       "Drive the first three steps aggressively. Stay tall after acceleration and walk back for the recovery.",
   },
@@ -268,6 +277,7 @@ export const drillLibrary = [
     duration: "5 min",
     equipment: "Wall",
     target: "Hold through the final minute without dropping",
+    diagram: "/drill-source/wall-sit-hold.svg",
     instructions:
       "Knees stacked over ankles, back flat, chest tall. Breathe through the burn and keep pressure even on both feet.",
   },
@@ -655,6 +665,22 @@ export function buildCoachReply(prompt: string, assessment: AssessmentState) {
     ];
   }
 
+  if (promptLower.includes("tired") || promptLower.includes("fatigue") || promptLower.includes("exhaust") || promptLower.includes("sore")) {
+    return [
+      "Twenty minutes of real intensity is plenty — fatigue that early usually means the work-to-rest ratio needs to flip, not that the session needs to shrink.",
+      "Cut total reps by a third, double the rest between sets, and finish with a touch-only block instead of pushing through tired legs.",
+      "Track how you feel the next morning — if you're still heavy, that's the signal to swap a hard day for recovery before adding volume back.",
+    ];
+  }
+
+  if (promptLower.includes("shoot") || promptLower.includes("finish") || promptLower.includes("score") || promptLower.includes("goal")) {
+    return [
+      "Shooting improves fastest from repetition under realistic pressure — work first-time finishes from a moving ball, not just stationary strikes.",
+      "Pick one target zone (far post, low and hard) and commit to it for the week so your body grooves a single, repeatable motion.",
+      `Right now your shooting sits at ${assessment.shooting}/100 — pair every finishing rep with one quality first touch so the setup matches the strike.`,
+    ];
+  }
+
   return [
     `The clearest focus remains ${focus.join(", ")}.`,
     `Use small touches, clean body shape, and consistent recovery between sets.`,
@@ -712,6 +738,10 @@ export function createBlankState(): AppState {
     },
     ui: {
       demoLoaded: false,
+      sessionProgress: {
+        currentDrillIndex: 0,
+        completedDrillIndexes: [],
+      },
     },
   };
 }
@@ -874,6 +904,10 @@ export const appStateSchema = z.object({
   }),
   ui: z.object({
     demoLoaded: z.boolean(),
+    sessionProgress: z.object({
+      currentDrillIndex: z.number(),
+      completedDrillIndexes: z.array(z.number()),
+    }),
   }),
 });
 

@@ -1,0 +1,16 @@
+<svg width="640" height="400" viewBox="0 0 640 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="400" rx="32" fill="#0A0A0B"/>
+  <rect x="42" y="42" width="556" height="316" rx="20" fill="#111315" stroke="#2D3430" stroke-width="2"/>
+  <path d="M454 92V310" stroke="#F5F5F6" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="198" cy="226" r="28" fill="#1A1F1C" stroke="#A7FF6A" stroke-width="4"/>
+  <path d="M198 212V240" stroke="#A7FF6A" stroke-width="4" stroke-linecap="round"/>
+  <path d="M184 226H212" stroke="#A7FF6A" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="252" cy="218" r="18" fill="#F5F5F6"/>
+  <path d="M270 208C326 166 370 150 432 172" stroke="#F5F5F6" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
+  <path d="M428 172L396 154" stroke="#F5F5F6" stroke-width="6" stroke-linecap="round"/>
+  <path d="M428 172L402 196" stroke="#F5F5F6" stroke-width="6" stroke-linecap="round"/>
+  <path d="M430 180C372 230 328 262 252 284" stroke="#A7FF6A" stroke-width="7" stroke-linecap="round" stroke-dasharray="12 12"/>
+  <circle cx="252" cy="284" r="8" fill="#A7FF6A"/>
+  <text x="454" y="72" fill="#F5F5F6" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Wall</text>
+  <text x="252" y="330" fill="#D4D7D5" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Cushion into space</text>
+</svg>
