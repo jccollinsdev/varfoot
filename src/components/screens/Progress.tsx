@@ -9,7 +9,7 @@
 import { useMemo, useState } from "react";
 import { CheckCircle, Circle, Medal } from "@phosphor-icons/react";
 
-import { Eyebrow, FlatCard, MetricBar, Radar, TopBar } from "@/components/ui";
+import { Eyebrow, FlatCard, MetricBar, Radar, TopBar, initialsOf } from "@/components/ui";
 import type { DrillCategory } from "@/data/drillCatalog";
 import { gapSummary, type GapItem, type ReadinessSummary } from "@/lib/readiness";
 import { CATEGORY_BUCKET } from "@/lib/roadmap";
@@ -136,9 +136,4 @@ export function Progress({
   );
 }
 
-function initialsOf(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "VA";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
+

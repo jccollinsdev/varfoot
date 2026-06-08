@@ -285,6 +285,14 @@ function App() {
   const gaps = useMemo(() => gapSummary(state.assessment, state.drillResults), [state.assessment, state.drillResults]);
   const topGap = useMemo(() => gaps.find((g) => g.measured) ?? gaps[0] ?? null, [gaps]);
   const streak = useMemo(() => computeStreak(state.roadmap), [state.roadmap]);
+  const initials = useMemo(() => {
+    const name = state.assessment.name.trim();
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "VA";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }, [state.assessment.name]);
+  const effectiveSyncState = demoMode ? "demo" : guestMode ? "guest" : syncState;
   const coachNote = planSummary ?? (summary.weakest
     ? `Your biggest opportunity right now is ${summary.weakest.label.toLowerCase()} — that's where your next session should focus.`
     : null);
@@ -524,6 +532,7 @@ function App() {
             meals={state.nutrition.meals}
             targets={state.nutrition}
             streak={streak}
+            initials={initials}
             onAvatarTap={avatarTap}
             onLogMeal={() => go({ id: "mealBuilder" })}
             onDeleteMeal={deleteMeal}
@@ -537,6 +546,7 @@ function App() {
             status={state.coach.status}
             error={coachError}
             streak={streak}
+            initials={initials}
             onAvatarTap={avatarTap}
             onDraftChange={(text) => patchState((prev) => ({ ...prev, coach: { ...prev.coach, draft: text } }))}
             onSend={sendCoach}
@@ -618,7 +628,7 @@ function App() {
           <Profile
             state={state}
             localMode={localMode}
-            syncState={syncState}
+            syncState={effectiveSyncState}
             onSignOut={handleSignOut}
             onLoadDemo={loadDemo}
             onReset={resetAll}

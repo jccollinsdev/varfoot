@@ -69,6 +69,7 @@ export function Nutrition({
   meals,
   targets,
   streak,
+  initials,
   onAvatarTap,
   onLogMeal,
   onDeleteMeal,
@@ -76,6 +77,7 @@ export function Nutrition({
   meals: Meal[];
   targets: { calorieTarget: number; proteinTarget: number; carbTarget: number; fatTarget: number };
   streak: number;
+  initials: string;
   onAvatarTap: () => void;
   onLogMeal: () => void;
   onDeleteMeal: (mealId: string) => void;
@@ -85,7 +87,7 @@ export function Nutrition({
 
   return (
     <>
-      <TopBar title="Fuel" streak={streak} onAvatarTap={onAvatarTap} />
+      <TopBar title="Fuel" streak={streak} onAvatarTap={onAvatarTap} initials={initials} />
       <div className="content-area content-scroll" style={{ padding: "18px 18px 28px" }}>
         <Card style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 16 }}>
           <Ring size={104} pct={caloriePct} sw={9}>

@@ -8,6 +8,8 @@ import type { AppState } from "@/lib/varfoot";
 
 const SYNC_LABELS: Record<string, string> = {
   local: "Local only",
+  guest: "Local only",
+  demo: "Demo mode",
   loading: "Loading…",
   saving: "Saving…",
   synced: "Cloud synced",

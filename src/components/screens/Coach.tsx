@@ -58,6 +58,7 @@ export function Coach({
   status,
   error,
   streak,
+  initials,
   onAvatarTap,
   onDraftChange,
   onSend,
@@ -69,6 +70,7 @@ export function Coach({
   /** The real Gemini/network failure message — surfaced verbatim, never replaced with fake copy. */
   error: string | null;
   streak: number;
+  initials: string;
   onAvatarTap: () => void;
   onDraftChange: (text: string) => void;
   onSend: (prompt: string) => void;
@@ -89,7 +91,7 @@ export function Coach({
 
   return (
     <>
-      <TopBar title="Coach" streak={streak} onAvatarTap={onAvatarTap} />
+      <TopBar title="Coach" streak={streak} onAvatarTap={onAvatarTap} initials={initials} />
       <div ref={scrollRef} className="content-area content-scroll" style={{ padding: "18px 16px 12px", display: "flex", flexDirection: "column" }}>
         {messages.length === 0 && status !== "loading" && (
           <div style={{ textAlign: "center", padding: "28px 12px" }}>

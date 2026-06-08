@@ -7,7 +7,7 @@
 
 import { ArrowRight, CalendarBlank, HandWaving, Lightning, ListMagnifyingGlass, Play, Sparkle } from "@phosphor-icons/react";
 
-import { Eyebrow, FlatCard, Ring, TopBar } from "@/components/ui";
+import { Eyebrow, FlatCard, Ring, TopBar, initialsOf } from "@/components/ui";
 import { getDrill } from "@/data/drillCatalog";
 import { readinessLevelLabels } from "@/lib/scoring";
 import type { GapItem, ReadinessSummary } from "@/lib/readiness";
@@ -61,7 +61,7 @@ export function Today({
 
   return (
     <>
-      <TopBar title="VarFoot" streak={streak} onAvatarTap={onAvatarTap} />
+      <TopBar title="VarFoot" streak={streak} onAvatarTap={onAvatarTap} initials={initialsOf(assessment.name)} />
       <div className="content-area content-scroll" style={{ padding: "18px 18px 28px" }}>
         <div className="flex items-center gap-2 mb-4">
           <HandWaving size={18} weight="fill" color="var(--yellow)" />
