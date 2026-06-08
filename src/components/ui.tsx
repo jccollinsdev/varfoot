@@ -127,6 +127,7 @@ export function MetricBar({
 export function Timer({
   targetSeconds = 0,
   fillTargetSeconds = 0,
+  precision = 0,
   onComplete,
   onStop,
 }: {
@@ -134,6 +135,9 @@ export function Timer({
   /** For open-ended stopwatch drills (plank hold, wall sit): drives the ring fill toward
    * a benchmark duration (e.g. the varsity target) without counting down or auto-stopping. */
   fillTargetSeconds?: number;
+  /** Decimal places to track and display — sprint/agility drills are won or lost by tenths
+   * or hundredths of a second, so whole-second ticks are too coarse to be useful there. */
+  precision?: 0 | 1 | 2;
   /** Fires once when a fixed-length countdown reaches zero (e.g. the 60s weak-foot window). */
   onComplete?: (elapsedSeconds: number) => void;
   /** Fires every time the player pauses — the elapsed time at that moment is the
@@ -143,16 +147,27 @@ export function Timer({
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastTickRef = useRef(0);
   const completedRef = useRef(false);
 
   useEffect(() => {
     if (running) {
-      intervalRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+      if (precision > 0) {
+        lastTickRef.current = Date.now();
+        intervalRef.current = setInterval(() => {
+          const now = Date.now();
+          const delta = (now - lastTickRef.current) / 1000;
+          lastTickRef.current = now;
+          setElapsed((s) => s + delta);
+        }, 30);
+      } else {
+        intervalRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+      }
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [running]);
+  }, [running, precision]);
 
   useEffect(() => {
     if (targetSeconds > 0 && elapsed >= targetSeconds && running && !completedRef.current) {
@@ -162,8 +177,10 @@ export function Timer({
     }
   }, [elapsed, targetSeconds, running, onComplete]);
 
+  const round = (seconds: number) => (precision > 0 ? Number(seconds.toFixed(precision)) : Math.round(seconds));
+
   const toggle = () => {
-    if (running) onStop?.(elapsed);
+    if (running) onStop?.(round(elapsed));
     setRunning((wasRunning) => !wasRunning);
   };
 
@@ -177,12 +194,13 @@ export function Timer({
   const ringTarget = targetSeconds > 0 ? targetSeconds : fillTargetSeconds;
   const pct = ringTarget > 0 ? Math.min(1, elapsed / ringTarget) : 0;
   const display = targetSeconds > 0 ? Math.max(0, targetSeconds - elapsed) : elapsed;
+  const displayLabel = precision > 0 ? `${display.toFixed(precision)}s` : formatDuration(display);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
       <Ring size={140} pct={ringTarget > 0 ? pct : 1} sw={9}>
         <div style={{ textAlign: "center" }}>
-          <p style={{ fontSize: 28, fontWeight: 900, fontFamily: "var(--font-plex-mono)", lineHeight: 1 }}>{formatDuration(display)}</p>
+          <p style={{ fontSize: 28, fontWeight: 900, fontFamily: "var(--font-plex-mono)", lineHeight: 1 }}>{displayLabel}</p>
           <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--text-3)", marginTop: 4 }}>
             {targetSeconds > 0 ? "remaining" : "elapsed"}
           </p>
@@ -266,16 +284,21 @@ export function DrillCapture({
   }
 
   if (drill.inputType === "timed") {
+    // Sprints/agility shuttles are a race against the clock — a plain stopwatch counting up
+    // in hundredths reads naturally against sub-5-second targets. Holds (plank, wall sit,
+    // balance) are the opposite: open-ended, so the ring just fills toward the benchmark.
+    const isRaceAgainstClock = drill.scoreDirection === "lower_is_better";
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
         <Timer
           key={`${drill.id}-timer`}
           fillTargetSeconds={drill.scoreDirection === "higher_is_better" ? drill.varsityTarget : 0}
+          precision={isRaceAgainstClock ? 2 : 0}
           onStop={(elapsed) => { if (elapsed > 0) onChange(elapsed, false); }}
         />
         {value != null && (
           <p style={{ fontSize: 12, fontWeight: 800, color: "var(--green)" }}>
-            Recorded: {value}s — start again to overwrite
+            Recorded: {isRaceAgainstClock ? value.toFixed(2) : value}s — start again to overwrite
           </p>
         )}
       </div>
@@ -284,6 +307,7 @@ export function DrillCapture({
 
   if (drill.inputType === "timed_count") {
     const current = value ?? 0;
+    const label = drill.unit.split(" / ")[0];
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
         <Timer key={`${drill.id}-timer`} targetSeconds={drill.timerSeconds ?? 60} />
@@ -292,7 +316,7 @@ export function DrillCapture({
             Clean passes completed in the window
           </p>
           <Stepper
-            display={`${current} ${drill.unit}`}
+            display={`${current} ${label}`}
             onDecrement={() => onChange(Math.max(0, current - 1), false)}
             onIncrement={() => onChange(current + 1, false)}
           />
