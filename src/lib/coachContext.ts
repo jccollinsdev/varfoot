@@ -61,7 +61,7 @@ export function buildCoachContext(state: AppState): string {
     if (current) {
       const drillNames = current.drillIds.map((id) => drillsById[id]?.name).filter(Boolean).join(", ");
       const timingLabel = current.date === today ? "Today's session" : "Next scheduled session";
-      lines.push(`${timingLabel} ("${current.label}", focus: ${current.focusCategory}): ${drillNames || "no drills scheduled"}.`);
+      lines.push(`${timingLabel} ("${current.label}", focus: ${current.focusCategory}, ~${current.estimatedMinutes} min total): ${drillNames || "no drills scheduled"}.`);
     }
   } else {
     lines.push("Roadmap: not generated yet.");
