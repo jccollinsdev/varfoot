@@ -120,18 +120,15 @@ body {
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
-  .phone-column::before {
-    content: "";
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    width: 120px;
-    height: 6px;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: var(--border-soft);
-    z-index: 12;
-    pointer-events: none;
+  /* Keep bar/content clear of the rounded corners of the frame */
+  .phone-column .app-bar,
+  .phone-column .bottom-nav {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .phone-column .app-bar {
+    padding-top: 20px;
   }
 }
 
@@ -146,10 +143,6 @@ body {
     border-radius: 0;
     border: none;
     box-shadow: none;
-  }
-
-  .phone-column::before {
-    display: none;
   }
 }
 
