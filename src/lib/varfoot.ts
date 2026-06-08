@@ -65,7 +65,18 @@ export type DrillResult = {
   recordedAt: string;
   /** True when the player chose "needs a partner / skip for now" — does not block progression. */
   skipped?: boolean;
+  /** Where this measurement came from. "assessment" results seed the gap analysis but should
+   * NOT make a roadmap session's drill look pre-completed — the player still has to log a
+   * fresh rep for that session. Defaults to "session" for older saved states. */
+  source?: "assessment" | "session";
 };
+
+/** True when a result counts as "logged" for roadmap-session purposes — assessment-time
+ * baseline measurements don't count, so a freshly generated session never opens looking
+ * like the player already finished drills they've only ever measured once, at onboarding. */
+export function isLoggedForSession(result: DrillResult | undefined): boolean {
+  return Boolean(result && result.source !== "assessment" && (result.skipped || result.value != null));
+}
 
 export type RoadmapNodeStatus = "locked" | "current" | "completed";
 
@@ -281,6 +292,7 @@ const drillResultSchema = z.object({
   value: z.number().nullable(),
   recordedAt: z.string(),
   skipped: z.boolean().optional(),
+  source: z.enum(["assessment", "session"]).optional(),
 });
 
 const roadmapNodeSchema = z.object({

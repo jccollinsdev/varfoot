@@ -177,6 +177,7 @@ export function Onboarding({
           value: draft.skipped ? null : draft.value,
           recordedAt: new Date().toISOString(),
           skipped: draft.skipped || undefined,
+          source: "assessment",
         };
       }
       onComplete(assessment, results);

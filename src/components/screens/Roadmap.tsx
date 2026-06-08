@@ -10,7 +10,7 @@ import { Barbell, BowlFood, CalendarBlank, Check, CheckCircle, Lightning, Lock, 
 import { BackBar, Btn, Card, Eyebrow, FlatCard } from "@/components/ui";
 import { getDrill, type DrillCategory } from "@/data/drillCatalog";
 import { CATEGORY_BUCKET } from "@/lib/roadmap";
-import { teamLevelLabels, type AssessmentState, type DrillResult, type RoadmapNode, type RoadmapState } from "@/lib/varfoot";
+import { isLoggedForSession, teamLevelLabels, type AssessmentState, type DrillResult, type RoadmapNode, type RoadmapState } from "@/lib/varfoot";
 import { cn } from "@/lib/utils";
 
 const BUCKET_ICON: Record<"technical" | "physical" | "conditioning" | "recovery", typeof Target> = {
@@ -167,10 +167,7 @@ export function RoadmapSession({
   onOpenDrill: (drillId: string) => void;
 }) {
   const drills = node.drillIds.map((id) => getDrill(id)).filter((d): d is NonNullable<typeof d> => Boolean(d));
-  const completedCount = node.drillIds.filter((id) => {
-    const saved = drillResults[id];
-    return Boolean(saved && (saved.skipped || saved.value != null));
-  }).length;
+  const completedCount = node.drillIds.filter((id) => isLoggedForSession(drillResults[id])).length;
   return (
     <>
       <BackBar title={node.label} sub={formatNodeDate(node.date) ?? undefined} onBack={onBack} />
@@ -187,7 +184,7 @@ export function RoadmapSession({
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {drills.map((drill, i) => {
-            const logged = Boolean(drillResults[drill.id] && (drillResults[drill.id].skipped || drillResults[drill.id].value != null));
+            const logged = isLoggedForSession(drillResults[drill.id]);
             return (
               <button
                 key={drill.id}

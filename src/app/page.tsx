@@ -33,7 +33,7 @@ import { completeRoadmapNode, generateRoadmap } from "@/lib/roadmap";
 import { createSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase";
 import { loadRemoteState, upsertRemoteProfile, upsertRemoteState } from "@/lib/varfoot-sync";
 import {
-  clearGuestMode, clearState, createBlankState, loadGuestMode, loadState, makeId, saveGuestMode, saveState,
+  clearGuestMode, clearState, createBlankState, isLoggedForSession, loadGuestMode, loadState, makeId, saveGuestMode, saveState,
   type AppState, type AssessmentState, type CoachMessage, type DrillResult,
   type Meal, type RoadmapState,
 } from "@/lib/varfoot";
@@ -100,7 +100,7 @@ function createDemoState(): AppState {
   };
   const recordedAt = new Date().toISOString();
   const drillResults: Record<string, DrillResult> = Object.fromEntries(
-    drillCatalog.map((drill) => [drill.id, { drillId: drill.id, value: drill.jvTarget, recordedAt, skipped: false }]),
+    drillCatalog.map((drill) => [drill.id, { drillId: drill.id, value: drill.jvTarget, recordedAt, skipped: false, source: "assessment" as const }]),
   );
   const roadmap = generateRoadmap({ assessment, drillResults });
   return { ...createBlankState(), onboardingComplete: true, assessment, drillResults, roadmap };
@@ -291,18 +291,23 @@ function App() {
 
   // ─── Actions ────────────────────────────────────────────────────────────────
 
-  async function generatePlan() {
+  function generatePlan() {
     if (planLoading) return;
     setPlanLoading(true);
-    try {
-      const res = await fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
-      const payload = await res.json() as { roadmap: RoadmapState; summary: string | null; summaryError: string | null };
-      patchState((prev) => ({ ...prev, roadmap: payload.roadmap }));
-      setPlanSummary(payload.summary);
-      goTab("plan");
-    } finally {
-      setPlanLoading(false);
-    }
+
+    // Roadmap generation is deterministic and code-based (src/lib/roadmap.ts) — running it
+    // here instead of waiting on the API route means the plan appears instantly instead of
+    // blocking on the slow part (the AI one-line summary, a multi-second Gemini round trip).
+    const roadmap = generateRoadmap({ assessment: state.assessment, drillResults: state.drillResults, existing: state.roadmap });
+    const nextState = { ...state, roadmap };
+    patchState((prev) => ({ ...prev, roadmap }));
+    goTab("plan");
+    setPlanLoading(false);
+
+    fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: nextState }) })
+      .then((res) => res.json())
+      .then((payload: { summary: string | null }) => setPlanSummary(payload.summary))
+      .catch(() => {});
   }
 
   function handleOnboardComplete(assessment: AssessmentState, drillResults: Record<string, DrillResult>) {
@@ -356,16 +361,13 @@ function App() {
     patchState((prev) => {
       const drillResults: Record<string, DrillResult> = {
         ...prev.drillResults,
-        [drillId]: { drillId, value: result.value, recordedAt: new Date().toISOString(), skipped: result.skipped },
+        [drillId]: { drillId, value: result.value, recordedAt: new Date().toISOString(), skipped: result.skipped, source: "session" },
       };
       let roadmap = prev.roadmap;
       if (sessionNodeId) {
         const node = prev.roadmap.nodes.find((item) => item.id === sessionNodeId);
         const sessionComplete = node
-          ? node.drillIds.every((id) => {
-            const saved = id === drillId ? drillResults[drillId] : drillResults[id];
-            return Boolean(saved && (saved.skipped || saved.value != null));
-          })
+          ? node.drillIds.every((id) => isLoggedForSession(id === drillId ? drillResults[drillId] : drillResults[id]))
           : false;
         roadmap = sessionComplete ? completeRoadmapNode(prev.roadmap, sessionNodeId) : prev.roadmap;
       }
@@ -572,10 +574,7 @@ function App() {
           ? state.roadmap.nodes.find((item) => item.id === current.sessionNodeId) ?? null
           : null;
         const sessionCompletedCount = sessionNode
-          ? sessionNode.drillIds.filter((id) => {
-            const saved = state.drillResults[id];
-            return Boolean(saved && (saved.skipped || saved.value != null));
-          }).length
+          ? sessionNode.drillIds.filter((id) => isLoggedForSession(state.drillResults[id])).length
           : 0;
         return (
           <DrillDetail
@@ -587,7 +586,7 @@ function App() {
               totalCount: sessionNode.drillIds.length,
               willCompleteOnSave:
                 sessionNode.status !== "completed" &&
-                sessionCompletedCount + (state.drillResults[drill.id] ? 0 : 1) >= sessionNode.drillIds.length,
+                sessionCompletedCount + (isLoggedForSession(state.drillResults[drill.id]) ? 0 : 1) >= sessionNode.drillIds.length,
             } : null}
             onBack={back}
             onSave={(result) => saveDrillResult(drill.id, result, current.sessionNodeId)}
