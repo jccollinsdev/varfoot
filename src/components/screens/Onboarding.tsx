@@ -303,9 +303,9 @@ function BodySlide({ assessment, onChange }: { assessment: AssessmentState; onCh
             />
           </div>
           <div style={{ flex: 1 }}>
-            <FieldLabel>Weight</FieldLabel>
+            <FieldLabel>Weight (lbs)</FieldLabel>
             <Stepper
-              display={`${weightLbs} lbs`}
+              display={`${weightLbs}`}
               onDecrement={() => onChange({ weightLbs: Math.max(80, weightLbs - 5) })}
               onIncrement={() => onChange({ weightLbs: Math.min(260, weightLbs + 5) })}
             />
