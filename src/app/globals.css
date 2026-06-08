@@ -82,8 +82,9 @@ body {
   min-height: 100dvh;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   overflow: hidden;
+  padding: 0;
   z-index: 1;
   background: #000;
 }
@@ -93,18 +94,62 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
   max-width: 430px;
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
   background: var(--bg);
+  isolation: isolate;
 }
 
+/* Desktop: center the app in a distinct iPhone-like frame */
 @media (min-width: 431px) {
+  .phone-shell {
+    padding: 24px;
+  }
+
   .phone-column {
-    border-left: 1px solid var(--border-soft);
-    border-right: 1px solid var(--border-soft);
-    box-shadow: -24px 0 60px rgba(0,0,0,.6), 24px 0 60px rgba(0,0,0,.6);
+    width: min(430px, 100%);
+    height: min(900px, calc(100dvh - 48px));
+    border-radius: 34px;
+    border: 1px solid var(--border-soft);
+    box-shadow:
+      0 30px 90px rgba(0, 0, 0, 0.45),
+      0 10px 28px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .phone-column::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    width: 120px;
+    height: 6px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: var(--border-soft);
+    z-index: 12;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .phone-shell {
+    align-items: stretch;
+  }
+
+  .phone-column {
+    max-width: none;
+    height: 100dvh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .phone-column::before {
+    display: none;
   }
 }
 
