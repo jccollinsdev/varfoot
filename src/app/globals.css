@@ -295,6 +295,38 @@ body {
   align-items: center; justify-content: center;
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--r-sm);
+  min-width: 0;
+}
+.vf-stepper-val span { white-space: nowrap; }
+
+.vf-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vf-day-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.vf-day-btn {
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-radius: var(--r-sm);
+  min-height: 42px;
+  font-size: 12px;
+  font-weight: 800;
+  font-family: var(--font-nunito), sans-serif;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vf-day-btn.on {
+  background: var(--green-ghost);
+  border-color: var(--green-line);
+  color: var(--green);
 }
 
 /* ── Hatched diagram placeholder ──────────────────────────────────────────── */
@@ -402,6 +434,16 @@ body {
 .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .vf-divider { height: 1px; background: var(--border-soft); }
+
+@media (max-width: 380px) {
+  .vf-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .vf-day-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 
 /* ── Legacy compat (Onboarding / Auth components) ────────────────────────── */
 

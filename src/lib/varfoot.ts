@@ -17,11 +17,13 @@ export type CoachMessage = {
 /** "loading"/"error" drive the explicit retry UI in CoachScreen — no silent fake fallback text. */
 export type CoachStatus = "idle" | "loading" | "error";
 
-export type TeamLevel = "freshman" | "jv" | "varsity";
+export type TeamLevel = "incoming-freshman" | "freshman" | "jv" | "varsity";
 
-export const teamLevels: TeamLevel[] = ["freshman", "jv", "varsity"];
+export const currentTeamLevels: TeamLevel[] = ["incoming-freshman", "freshman", "jv", "varsity"];
+export const targetTeamLevels: TeamLevel[] = ["freshman", "jv", "varsity"];
 
 export const teamLevelLabels: Record<TeamLevel, string> = {
+  "incoming-freshman": "Incoming freshman",
   freshman: "Freshman",
   jv: "JV",
   varsity: "Varsity",
@@ -322,7 +324,7 @@ export const appStateSchema = z.object({
     heightInches: z.number().nullable(),
     weightLbs: z.number().nullable(),
     availableDays: z.array(z.number().int().min(0).max(6)).default([]),
-    currentLevel: z.enum(["freshman", "jv", "varsity"]).nullable(),
+    currentLevel: z.enum(["incoming-freshman", "freshman", "jv", "varsity"]).nullable(),
     targetLevel: z.enum(["freshman", "jv", "varsity"]),
     tryoutDate: z.string().nullable(),
     trainingDaysPerWeek: z.number(),

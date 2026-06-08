@@ -25,9 +25,10 @@ import { Btn, DrillCapture, Eyebrow, Stepper, type DrillDraft } from "@/componen
 import { onboardingPhysicalDrills, onboardingTechnicalDrills, type Drill } from "@/data/drillCatalog";
 import {
   blankAssessment,
+  currentTeamLevels,
   formatHeight,
   teamLevelLabels,
-  teamLevels,
+  targetTeamLevels,
   type AssessmentState,
   type DrillResult,
   type TeamLevel,
@@ -51,6 +52,17 @@ const WEEKDAYS = [
   { value: 4, label: "Thu" },
   { value: 5, label: "Fri" },
   { value: 6, label: "Sat" },
+] as const;
+
+const POSITION_OPTIONS = [
+  "Goalkeeper",
+  "Center back",
+  "Outside back",
+  "Defensive midfield",
+  "Central midfield",
+  "Attacking midfield",
+  "Winger",
+  "Striker",
 ] as const;
 
 type ProfileStepId = "identity" | "body" | "goal";
@@ -82,17 +94,19 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 function LevelPicker({
+  levels,
   value,
   onChange,
   allowUnset,
 }: {
+  levels: readonly TeamLevel[];
   value: TeamLevel | null;
   onChange: (level: TeamLevel) => void;
   allowUnset?: boolean;
 }) {
   return (
     <div className="vf-seg">
-      {teamLevels.map((level) => (
+      {levels.map((level) => (
         <button
           key={level}
           type="button"
@@ -122,6 +136,11 @@ export function Onboarding({
 
   const step = STEPS[stepIndex];
   const measuredSoFar = STEPS.slice(0, stepIndex).filter((s) => s.kind === "drill").length;
+  const stepCounter = step.kind === "done"
+    ? `${TOTAL_MEASURED_STEPS}/${TOTAL_MEASURED_STEPS}`
+    : step.kind === "drill"
+      ? `${measuredSoFar + 1}/${TOTAL_MEASURED_STEPS}`
+      : `${stepIndex + 1}/3`;
 
   const updateAssessment = (patch: Partial<AssessmentState>) => setAssessment((prev) => ({ ...prev, ...patch }));
 
@@ -176,7 +195,7 @@ export function Onboarding({
           </button>
           <Eyebrow tone="green">{step.kind === "done" ? "Assessment complete" : SECTION_LABELS[step.section]}</Eyebrow>
           <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-3)", fontFamily: "var(--font-plex-mono)" }}>
-            {step.kind === "done" ? `${TOTAL_MEASURED_STEPS}/${TOTAL_MEASURED_STEPS}` : `${measuredSoFar}/${TOTAL_MEASURED_STEPS}`}
+            {stepCounter}
           </span>
         </div>
         <div className="vf-bar thin">
@@ -251,7 +270,12 @@ function IdentitySlide({ assessment, onChange }: { assessment: AssessmentState; 
         </div>
         <div>
           <FieldLabel>Position</FieldLabel>
-          <input className="vf-input" placeholder="e.g. Center back, winger, keeper…" value={assessment.position} onChange={(e) => onChange({ position: e.target.value })} />
+          <select className="vf-input" value={assessment.position} onChange={(e) => onChange({ position: e.target.value })}>
+            <option value="">Select your position</option>
+            {POSITION_OPTIONS.map((position) => (
+              <option key={position} value={position}>{position}</option>
+            ))}
+          </select>
         </div>
       </div>
     </div>
@@ -265,9 +289,9 @@ function BodySlide({ assessment, onChange }: { assessment: AssessmentState; onCh
     <div>
       <SlideHeading eyebrow="Step 2 · Profile" title="Body & current level" sub="Used to frame your starting point — not for grading. Where are you on the team ladder right now?" />
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <FieldLabel>Height — {formatHeight(assessment.heightInches)}</FieldLabel>
+            <FieldLabel>Height</FieldLabel>
             <Stepper
               display={formatHeight(heightInches)}
               onDecrement={() => onChange({ heightInches: Math.max(48, heightInches - 1) })}
@@ -285,11 +309,11 @@ function BodySlide({ assessment, onChange }: { assessment: AssessmentState; onCh
         </div>
         <div>
           <FieldLabel>Current team level</FieldLabel>
-          <LevelPicker value={assessment.currentLevel} onChange={(level) => onChange({ currentLevel: level })} allowUnset />
+          <LevelPicker levels={currentTeamLevels} value={assessment.currentLevel} onChange={(level) => onChange({ currentLevel: level })} allowUnset />
         </div>
         <div>
           <FieldLabel>Target team level</FieldLabel>
-          <LevelPicker value={assessment.targetLevel} onChange={(level) => onChange({ targetLevel: level })} />
+          <LevelPicker levels={targetTeamLevels} value={assessment.targetLevel} onChange={(level) => onChange({ targetLevel: level })} />
         </div>
       </div>
     </div>
@@ -333,18 +357,31 @@ function GoalSlide({ assessment, onChange }: { assessment: AssessmentState; onCh
         </div>
         <div>
           <FieldLabel>Available days</FieldLabel>
-          <div className="vf-seg" style={{ flexWrap: "wrap", gap: 8 }}>
-            {WEEKDAYS.map((day) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))", gap: 8 }}>
+            {WEEKDAYS.map((day) => {
+              const selected = assessment.availableDays.includes(day.value);
+              return (
               <button
                 key={day.value}
                 type="button"
-                className={cn("vf-seg-btn", assessment.availableDays.includes(day.value) && "on")}
                 onClick={() => toggleDay(day.value)}
-                style={{ minWidth: 58 }}
+                style={{
+                  minHeight: 42,
+                  borderRadius: "var(--r-sm)",
+                  border: `1px solid ${selected ? "var(--green-line)" : "var(--border-soft)"}`,
+                  background: selected ? "var(--green-ghost)" : "var(--surface-2)",
+                  color: selected ? "var(--green)" : "var(--text-2)",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  fontFamily: "var(--font-nunito), sans-serif",
+                  cursor: "pointer",
+                  WebkitTapHighlightColor: "transparent",
+                }}
               >
                 {day.label}
               </button>
-            ))}
+              );
+            })}
           </div>
           <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 8, lineHeight: 1.5 }}>
             Optional exact weekdays. Leave this blank if your availability shifts week to week.

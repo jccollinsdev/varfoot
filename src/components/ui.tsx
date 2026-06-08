@@ -169,11 +169,8 @@ export function Timer({
   }, [elapsed, targetSeconds, running, onComplete]);
 
   const toggle = () => {
-    setRunning((wasRunning) => {
-      const next = !wasRunning;
-      if (wasRunning) onStop?.(elapsed);
-      return next;
-    });
+    if (running) onStop?.(elapsed);
+    setRunning((wasRunning) => !wasRunning);
   };
 
   const reset = () => {
@@ -237,7 +234,7 @@ export function Stepper({
 /** Per-checkin nudge size — derived from the drill's real-world unit (kcal/fl oz/hours),
  * not its raw target number. Keyed by id since only the 3 check-in drills need this. */
 export const CHECKIN_STEP: Record<string, number> = {
-  "daily-calories": 50,
+  "daily-calories": 250,
   "daily-water": 8,
   "sleep-duration": 0.5,
 };
@@ -276,7 +273,7 @@ export function DrillCapture({
   if (drill.inputType === "timed") {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-        <Timer onStop={(elapsed) => { if (elapsed > 0) onChange(elapsed, false); }} />
+        <Timer key={`${drill.id}-timer`} onStop={(elapsed) => { if (elapsed > 0) onChange(elapsed, false); }} />
         {value != null && (
           <p style={{ fontSize: 12, fontWeight: 800, color: "var(--green)" }}>
             Recorded: {value}s — start again to overwrite
@@ -290,7 +287,7 @@ export function DrillCapture({
     const current = value ?? 0;
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-        <Timer targetSeconds={drill.timerSeconds ?? 60} />
+        <Timer key={`${drill.id}-timer`} targetSeconds={drill.timerSeconds ?? 60} />
         <div style={{ width: "100%", maxWidth: 280 }}>
           <p style={{ fontSize: 11, fontWeight: 800, color: "var(--text-3)", textAlign: "center", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".08em" }}>
             Clean passes completed in the window

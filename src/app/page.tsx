@@ -169,6 +169,7 @@ function App() {
   const [stack, setStack] = useState<Screen[]>(() => [{ id: state.activeTab }]);
   const [rootTab, setRootTab] = useState<RootTab>(() => state.activeTab);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   const current = stack[stack.length - 1];
 
@@ -256,6 +257,28 @@ function App() {
     }, 600);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [bootstrapLoading, guestMode, localMode, session, state, supabase]);
+
+  // Desktop wheel scrolling can miss the inner .content-scroll region when the pointer is
+  // over the app bar / footer shell. Forward wheel deltas to the active content pane so
+  // every screen remains scrollable on laptops and desktops.
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    const onWheel = (event: WheelEvent) => {
+      if (showProfile) return;
+      if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+      const activeScrollArea = shell.querySelector<HTMLElement>(".content-scroll");
+      if (!activeScrollArea) return;
+      const canScroll = activeScrollArea.scrollHeight > activeScrollArea.clientHeight;
+      if (!canScroll) return;
+      activeScrollArea.scrollTop += event.deltaY;
+      event.preventDefault();
+    };
+
+    shell.addEventListener("wheel", onWheel, { passive: false });
+    return () => shell.removeEventListener("wheel", onWheel);
+  }, [current.id, showProfile, stack.length]);
 
   const summary = useMemo(() => computeReadiness(state.assessment, state.drillResults, state.roadmap), [state.assessment, state.drillResults, state.roadmap]);
   const gaps = useMemo(() => gapSummary(state.assessment, state.drillResults), [state.assessment, state.drillResults]);
@@ -572,7 +595,7 @@ function App() {
 
   return (
     <div className="phone-shell">
-      <div className="phone-column">
+      <div ref={shellRef} className="phone-column">
         {authError && !showProfile && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: "rgba(255,107,94,.08)", borderBottom: "1px solid rgba(255,107,94,.14)", color: "var(--red)", fontSize: 13, fontWeight: 600 }}>
             <span style={{ flex: 1 }}>{authError}</span>
