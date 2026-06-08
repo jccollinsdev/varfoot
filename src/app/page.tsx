@@ -33,7 +33,7 @@ import { completeRoadmapNode, generateRoadmap } from "@/lib/roadmap";
 import { createSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase";
 import { loadRemoteState, upsertRemoteProfile, upsertRemoteState } from "@/lib/varfoot-sync";
 import {
-  clearGuestMode, clearState, createBlankState, isLoggedForSession, loadGuestMode, loadState, makeId, saveGuestMode, saveState,
+  clearGuestMode, clearState, createBlankState, defaultNutritionTargets, isLoggedForSession, loadGuestMode, loadState, makeId, saveGuestMode, saveState,
   type AppState, type AssessmentState, type CoachMessage, type DrillResult,
   type Meal, type RoadmapState,
 } from "@/lib/varfoot";
@@ -99,11 +99,69 @@ function createDemoState(): AppState {
     goalFocus: "Improve first-step quickness and hold up better through contact",
   };
   const recordedAt = new Date().toISOString();
+
+  // Realistic JV-with-gaps profile: passing/first-touch are Jordan's strengths as a
+  // midfielder; speed/conditioning and nutrition are the primary gaps to close.
+  // Each override is set to produce a meaningfully different category score so the
+  // Today mini-tiles, radar, and coach note all tell the same coherent story.
+  const demoOverrides: Record<string, number> = {
+    "wall-cushion-rebound": 15,  // ~78/100 — solid first touch (freshman=9, jv=14, varsity=18)
+    "gate-pass-15": 14,          // ~78/100 — passing is Jordan's strength (freshman=8, jv=13, varsity=17)
+    "recovery-sprint-25": 5.9,   // ~55/100 — key athletic gap; lower_is_better (jv=5.4s, freshman=6.4s)
+    "daily-calories": 2600,      // ~57/100 — under-fueling (freshman=2200, jv=2900, varsity=3500)
+    "daily-water": 85,           // ~60/100 — under-hydrated (freshman=64oz, jv=96oz)
+  };
+
   const drillResults: Record<string, DrillResult> = Object.fromEntries(
-    drillCatalog.map((drill) => [drill.id, { drillId: drill.id, value: drill.jvTarget, recordedAt, skipped: false, source: "assessment" as const }]),
+    drillCatalog.map((drill) => [drill.id, {
+      drillId: drill.id,
+      value: demoOverrides[drill.id] ?? drill.jvTarget,
+      recordedAt,
+      skipped: false,
+      source: "assessment" as const,
+    }]),
   );
+
   const roadmap = generateRoadmap({ assessment, drillResults });
-  return { ...createBlankState(), onboardingComplete: true, assessment, drillResults, roadmap };
+  // Day 1 already complete — shows a real streak and a completed node in the roadmap.
+  if (roadmap.nodes.length >= 2) {
+    roadmap.nodes[0] = { ...roadmap.nodes[0], status: "completed" };
+    roadmap.nodes[1] = { ...roadmap.nodes[1], status: "current" };
+  }
+
+  // Partial today nutrition log: breakfast + lunch logged, dinner still ahead.
+  // Shows the Fuel tab is functional without making it look fully tracked.
+  // Uses local-clock hours so the timestamp displays correctly in any US timezone.
+  const localAt = (h: number, m: number) => { const d = new Date(); d.setHours(h, m, 0, 0); return d.toISOString(); };
+  const meals: Meal[] = [
+    {
+      id: makeId(),
+      type: "Breakfast",
+      loggedAt: localAt(8, 30),
+      ingredients: [
+        { id: makeId(), fdcId: 173944, name: "Oatmeal (cooked)", amount: 1, unit: "cup", calories: 166, protein: 6, carbs: 28, fat: 4 },
+        { id: makeId(), fdcId: 1097541, name: "Banana", amount: 1, unit: "medium", calories: 105, protein: 1, carbs: 27, fat: 0 },
+      ],
+    },
+    {
+      id: makeId(),
+      type: "Lunch",
+      loggedAt: localAt(12, 30),
+      ingredients: [
+        { id: makeId(), fdcId: 172020, name: "Chicken breast (grilled)", amount: 4, unit: "oz", calories: 185, protein: 35, carbs: 0, fat: 4 },
+        { id: makeId(), fdcId: 169994, name: "Brown rice (cooked)", amount: 1, unit: "cup", calories: 216, protein: 5, carbs: 45, fat: 2 },
+      ],
+    },
+  ];
+
+  return {
+    ...createBlankState(),
+    onboardingComplete: true,
+    assessment,
+    drillResults,
+    roadmap,
+    nutrition: { ...defaultNutritionTargets, meals },
+  };
 }
 
 /** Consecutive completed roadmap sessions counted from the start of the path — a real,

@@ -12,14 +12,14 @@ VarFoot is a soccer-specific PWA for JV, freshman, and club players who want a c
 - **AI-generated roadmap** — deterministic weekly plan from your gaps + tryout date, with a Gemini-written summary
 - **Session tracking** — drill-by-drill logging with progress counters; assessment baseline ≠ session log
 - **USDA food database search** — real macro math from live FoodData Central API
-- **AI coach chat** — Gemini 2.5 Flash grounded in your actual readiness, gaps, roadmap, and nutrition log
+- **AI coach chat** — Gemini 3.1 Flash Lite grounded in your actual readiness, gaps, roadmap, and nutrition log
 
 ## Stack
 
 - Next.js 16 (App Router, Turbopack)
 - React 19 + TypeScript
 - Supabase (auth + PostgreSQL with RLS)
-- Gemini 2.5 Flash (AI coach + roadmap summary)
+- Gemini 3.1 Flash Lite (AI coach + roadmap summary)
 - USDA FoodData Central API (nutrition search)
 - Vercel (deployment)
 
