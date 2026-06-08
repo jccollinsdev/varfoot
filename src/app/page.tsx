@@ -462,7 +462,15 @@ function App() {
   if (!localMode && !demoMode && !guestMode && !session) {
     return <Auth loading={authLoading} error={authError} onSubmit={handleAuthSubmit} onDemo={loadDemo} onStartLocal={startLocalAssessment} />;
   }
-  if (!state.onboardingComplete) return <Onboarding initialAssessment={state.assessment} onComplete={handleOnboardComplete} />;
+  if (!state.onboardingComplete) {
+    return (
+      <div className="phone-shell">
+        <div className="phone-column">
+          <Onboarding initialAssessment={state.assessment} onComplete={handleOnboardComplete} />
+        </div>
+      </div>
+    );
+  }
 
   const showNav = isRootScreen(current);
   const avatarTap = () => setShowProfile(true);
