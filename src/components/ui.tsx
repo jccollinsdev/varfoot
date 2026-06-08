@@ -126,10 +126,14 @@ export function MetricBar({
  */
 export function Timer({
   targetSeconds = 0,
+  fillTargetSeconds = 0,
   onComplete,
   onStop,
 }: {
   targetSeconds?: number;
+  /** For open-ended stopwatch drills (plank hold, wall sit): drives the ring fill toward
+   * a benchmark duration (e.g. the varsity target) without counting down or auto-stopping. */
+  fillTargetSeconds?: number;
   /** Fires once when a fixed-length countdown reaches zero (e.g. the 60s weak-foot window). */
   onComplete?: (elapsedSeconds: number) => void;
   /** Fires every time the player pauses — the elapsed time at that moment is the
@@ -170,12 +174,13 @@ export function Timer({
     completedRef.current = false;
   };
 
-  const pct = targetSeconds > 0 ? Math.min(1, elapsed / targetSeconds) : 0;
+  const ringTarget = targetSeconds > 0 ? targetSeconds : fillTargetSeconds;
+  const pct = ringTarget > 0 ? Math.min(1, elapsed / ringTarget) : 0;
   const display = targetSeconds > 0 ? Math.max(0, targetSeconds - elapsed) : elapsed;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-      <Ring size={140} pct={targetSeconds > 0 ? pct : 1} sw={9}>
+      <Ring size={140} pct={ringTarget > 0 ? pct : 1} sw={9}>
         <div style={{ textAlign: "center" }}>
           <p style={{ fontSize: 28, fontWeight: 900, fontFamily: "var(--font-plex-mono)", lineHeight: 1 }}>{formatDuration(display)}</p>
           <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--text-3)", marginTop: 4 }}>
@@ -263,7 +268,11 @@ export function DrillCapture({
   if (drill.inputType === "timed") {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-        <Timer key={`${drill.id}-timer`} onStop={(elapsed) => { if (elapsed > 0) onChange(elapsed, false); }} />
+        <Timer
+          key={`${drill.id}-timer`}
+          fillTargetSeconds={drill.scoreDirection === "higher_is_better" ? drill.varsityTarget : 0}
+          onStop={(elapsed) => { if (elapsed > 0) onChange(elapsed, false); }}
+        />
         {value != null && (
           <p style={{ fontSize: 12, fontWeight: 800, color: "var(--green)" }}>
             Recorded: {value}s — start again to overwrite
