@@ -4,15 +4,11 @@
 
 import { drillsById } from "@/data/drillCatalog";
 import { computeReadiness, gapSummary } from "./readiness";
-import { getDailyNutritionTotals, teamLevelLabels, type AppState } from "./varfoot";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { getDailyNutritionTotals, localDateOf, localTodayIso, teamLevelLabels, type AppState } from "./varfoot";
 
 export function buildCoachContext(state: AppState): string {
   const { assessment, drillResults, roadmap, nutrition } = state;
-  const today = todayIso();
+  const today = localTodayIso();
   const readiness = computeReadiness(assessment, drillResults, roadmap);
   const gaps = gapSummary(assessment, drillResults).slice(0, 5);
 
@@ -67,7 +63,7 @@ export function buildCoachContext(state: AppState): string {
     lines.push("Roadmap: not generated yet.");
   }
 
-  const totals = getDailyNutritionTotals(nutrition.meals.filter((m) => m.loggedAt.slice(0, 10) === today));
+  const totals = getDailyNutritionTotals(nutrition.meals.filter((m) => localDateOf(m.loggedAt) === today));
   lines.push(
     `Today's nutrition logged so far: ${Math.round(totals.calories)} kcal, ${Math.round(totals.protein)}g protein ` +
       `(targets: ${nutrition.calorieTarget} kcal / ${nutrition.proteinTarget}g protein).`,

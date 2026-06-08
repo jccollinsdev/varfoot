@@ -56,6 +56,7 @@ export function Coach({
   messages,
   draft,
   status,
+  streamingText,
   error,
   streak,
   initials,
@@ -67,6 +68,8 @@ export function Coach({
   messages: CoachMessage[];
   draft: string;
   status: CoachStatus;
+  /** Partial text accumulating while Gemini streams — shown live instead of just a spinner. */
+  streamingText: string;
   /** The real Gemini/network failure message — surfaced verbatim, never replaced with fake copy. */
   error: string | null;
   streak: number;
@@ -109,7 +112,20 @@ export function Coach({
           <MessageBubble key={message.id} message={message} />
         ))}
 
-        {status === "loading" && <TypingIndicator />}
+        {status === "loading" && !streamingText && <TypingIndicator />}
+        {status === "loading" && streamingText && (
+          <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 10 }}>
+            <div className="vf-ico" style={{ marginRight: 8, width: 30, height: 30 }}>
+              <Robot size={15} weight="bold" color="var(--green)" />
+            </div>
+            <div className="vf-bubble-in" style={{ maxWidth: "84%" }}>
+              {streamingText.split(/\n+/).filter(Boolean).map((line, i) => (
+                <p key={i} style={{ marginTop: i === 0 ? 0 : 6 }}>{line}</p>
+              ))}
+              <span style={{ display: "inline-block", width: 6, height: 12, background: "var(--green)", marginLeft: 2, borderRadius: 1, animation: "blink 1s step-end infinite", verticalAlign: "middle" }} />
+            </div>
+          </div>
+        )}
 
         {status === "error" && (
           <div className="vf-bubble-in" style={{ borderColor: "var(--red)", display: "flex", gap: 10, alignItems: "flex-start", maxWidth: "92%" }}>
@@ -144,22 +160,29 @@ export function Coach({
             ))}
           </div>
         )}
-        <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
-          <input
-            className="vf-input"
-            style={{ flex: 1 }}
-            placeholder="Ask about your gaps, plan, or nutrition…"
-            value={draft}
-            maxLength={240}
-            onChange={(e) => onDraftChange(e.target.value)}
-            disabled={status === "loading"}
-          />
+        <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <div style={{ flex: 1, position: "relative" }}>
+            <input
+              className="vf-input"
+              style={{ width: "100%", paddingRight: draft.length > 400 ? 36 : undefined }}
+              placeholder="Ask about your gaps, plan, or nutrition…"
+              value={draft}
+              maxLength={480}
+              onChange={(e) => onDraftChange(e.target.value)}
+              disabled={status === "loading"}
+            />
+            {draft.length > 400 && (
+              <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 10, fontWeight: 800, color: draft.length > 450 ? "var(--red)" : "var(--text-3)", fontFamily: "var(--font-plex-mono)", pointerEvents: "none" }}>
+                {480 - draft.length}
+              </span>
+            )}
+          </div>
           <button
             type="submit"
             className="vf-stepper-btn"
             aria-label="Send"
             disabled={status === "loading" || draft.trim().length === 0}
-            style={{ width: 50, height: 50, background: "var(--green)", color: "var(--green-ink)", border: "none", opacity: status === "loading" || draft.trim().length === 0 ? 0.5 : 1 }}
+            style={{ width: 50, height: 50, background: "var(--green)", color: "var(--green-ink)", border: "none", opacity: status === "loading" || draft.trim().length === 0 ? 0.5 : 1, flexShrink: 0 }}
           >
             <PaperPlaneTilt size={18} weight="fill" />
           </button>

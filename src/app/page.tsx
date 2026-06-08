@@ -33,7 +33,7 @@ import { completeRoadmapNode, generateRoadmap } from "@/lib/roadmap";
 import { createSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase";
 import { loadRemoteState, upsertRemoteProfile, upsertRemoteState } from "@/lib/varfoot-sync";
 import {
-  clearGuestMode, clearState, createBlankState, defaultNutritionTargets, isLoggedForSession, loadGuestMode, loadState, makeId, saveGuestMode, saveState,
+  clearGuestMode, clearState, computeNutritionTargets, createBlankState, defaultNutritionTargets, isLoggedForSession, loadGuestMode, loadState, localDateOf, localTodayIso, makeId, saveGuestMode, saveState,
   type AppState, type AssessmentState, type CoachMessage, type DrillResult,
   type Meal, type RoadmapState,
 } from "@/lib/varfoot";
@@ -160,7 +160,7 @@ function createDemoState(): AppState {
     assessment,
     drillResults,
     roadmap,
-    nutrition: { ...defaultNutritionTargets, meals },
+    nutrition: { ...computeNutritionTargets(assessment), meals },
   };
 }
 
@@ -223,6 +223,8 @@ function App() {
   const [planSummary, setPlanSummary] = useState<string | null>(null);
   const [coachError, setCoachError] = useState<string | null>(null);
   const [lastCoachPrompt, setLastCoachPrompt] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState("");
+  const [sessionCompleteModal, setSessionCompleteModal] = useState<{ streak: number; score: number; level: string } | null>(null);
 
   const [stack, setStack] = useState<Screen[]>(() => [{ id: state.activeTab }]);
   const [rootTab, setRootTab] = useState<RootTab>(() => state.activeTab);
@@ -342,6 +344,11 @@ function App() {
   const summary = useMemo(() => computeReadiness(state.assessment, state.drillResults, state.roadmap), [state.assessment, state.drillResults, state.roadmap]);
   const gaps = useMemo(() => gapSummary(state.assessment, state.drillResults), [state.assessment, state.drillResults]);
   const topGap = useMemo(() => gaps.find((g) => g.measured) ?? gaps[0] ?? null, [gaps]);
+  // Filter meals to local calendar day so the Fuel tab and coach context only count today's intake.
+  const todayMeals = useMemo(() => {
+    const today = localTodayIso();
+    return state.nutrition.meals.filter((m) => localDateOf(m.loggedAt) === today);
+  }, [state.nutrition.meals]);
   const streak = useMemo(() => computeStreak(state.roadmap), [state.roadmap]);
   const initials = useMemo(() => {
     const name = state.assessment.name.trim();
@@ -381,11 +388,13 @@ function App() {
       setGuestMode(true);
       saveGuestMode(true);
     }
+    const nutritionTargets = computeNutritionTargets(assessment);
     patchState((prev) => ({
       ...prev,
       onboardingComplete: true,
       assessment,
       drillResults: { ...prev.drillResults, ...drillResults },
+      nutrition: { ...prev.nutrition, ...nutritionTargets },
     }));
     setRootTab("today");
     setStack([{ id: "today" }, { id: "readiness", firstRun: true }]);
@@ -393,18 +402,52 @@ function App() {
 
   async function runCoachRequest(prompt: string) {
     setCoachError(null);
+    setStreamingText("");
     patchState((prev) => ({ ...prev, coach: { ...prev.coach, status: "loading" } }));
     try {
-      const res = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, state }) });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      const history = state.coach.messages.slice(-6).map((m) => ({ role: m.role, text: m.text }));
+      const res = await fetch("/api/coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, history, state }),
+      });
+      if (!res.ok || !res.body) {
+        const payload = await res.json().catch(() => ({}));
         setCoachError(typeof payload?.error === "string" ? payload.error : "The coach couldn't respond. Try again.");
         patchState((prev) => ({ ...prev, coach: { ...prev.coach, status: "error" } }));
         return;
       }
-      const assistantMsg: CoachMessage = { id: makeId(), role: "assistant", text: (payload.answer as string[]).join(" "), createdAt: new Date().toISOString() };
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      let errorMsg: string | null = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const raw = decoder.decode(value, { stream: true });
+        for (const line of raw.split("\n\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(payload) as { chunk?: string; error?: string };
+            if (parsed.error) { errorMsg = parsed.error; break; }
+            if (parsed.chunk) { accumulated += parsed.chunk; setStreamingText(accumulated); }
+          } catch { /* ignore partial lines */ }
+        }
+        if (errorMsg) break;
+      }
+      setStreamingText("");
+      if (errorMsg) {
+        setCoachError(errorMsg);
+        patchState((prev) => ({ ...prev, coach: { ...prev.coach, status: "error" } }));
+        return;
+      }
+      const text = accumulated.trim() || "No response received.";
+      const assistantMsg: CoachMessage = { id: makeId(), role: "assistant", text, createdAt: new Date().toISOString() };
       patchState((prev) => ({ ...prev, coach: { ...prev.coach, status: "idle", messages: [...prev.coach.messages, assistantMsg] } }));
     } catch {
+      setStreamingText("");
       setCoachError("Couldn't reach the coach. Check your connection and try again.");
       patchState((prev) => ({ ...prev, coach: { ...prev.coach, status: "error" } }));
     }
@@ -424,21 +467,34 @@ function App() {
   }
 
   function saveDrillResult(drillId: string, result: { value: number | null; skipped: boolean }, sessionNodeId?: string) {
-    patchState((prev) => {
-      const drillResults: Record<string, DrillResult> = {
-        ...prev.drillResults,
-        [drillId]: { drillId, value: result.value, recordedAt: new Date().toISOString(), skipped: result.skipped, source: "session" },
-      };
-      let roadmap = prev.roadmap;
-      if (sessionNodeId) {
-        const node = prev.roadmap.nodes.find((item) => item.id === sessionNodeId);
-        const sessionComplete = node
-          ? node.drillIds.every((id) => isLoggedForSession(id === drillId ? drillResults[drillId] : drillResults[id]))
-          : false;
-        roadmap = sessionComplete ? completeRoadmapNode(prev.roadmap, sessionNodeId) : prev.roadmap;
+    const newDrillResults: Record<string, DrillResult> = {
+      ...state.drillResults,
+      [drillId]: { drillId, value: result.value, recordedAt: new Date().toISOString(), skipped: result.skipped, source: "session" },
+    };
+    let newRoadmap = state.roadmap;
+    let sessionCompleted = false;
+    if (sessionNodeId) {
+      const node = state.roadmap.nodes.find((n) => n.id === sessionNodeId);
+      sessionCompleted = node
+        ? node.drillIds.every((id) => isLoggedForSession(id === drillId ? newDrillResults[drillId] : newDrillResults[id]))
+        : false;
+      if (sessionCompleted) {
+        newRoadmap = completeRoadmapNode(state.roadmap, sessionNodeId);
+        // Regenerate locked/current nodes so the plan re-prioritizes based on new scores.
+        newRoadmap = generateRoadmap({ assessment: state.assessment, drillResults: newDrillResults, existing: newRoadmap });
       }
-      return { ...prev, drillResults, roadmap };
-    });
+    }
+    setState((prev) => ({ ...prev, drillResults: newDrillResults, roadmap: newRoadmap }));
+    if (sessionCompleted) {
+      const newSummary = computeReadiness(state.assessment, newDrillResults, newRoadmap);
+      setSessionCompleteModal({
+        streak: computeStreak(newRoadmap),
+        score: Math.round(newSummary.overall),
+        level: newSummary.level,
+      });
+      back();
+      back(); // DrillDetail → RoadmapSession → Today
+    }
   }
 
   function toggleSavedDrill(drillId: string) {
@@ -587,7 +643,7 @@ function App() {
       case "fuel":
         return (
           <Nutrition
-            meals={state.nutrition.meals}
+            meals={todayMeals}
             targets={state.nutrition}
             streak={streak}
             initials={initials}
@@ -602,6 +658,7 @@ function App() {
             messages={state.coach.messages}
             draft={state.coach.draft}
             status={state.coach.status}
+            streamingText={streamingText}
             error={coachError}
             streak={streak}
             initials={initials}
@@ -692,6 +749,32 @@ function App() {
             onReset={resetAll}
             onClose={() => setShowProfile(false)}
           />
+        )}
+        {sessionCompleteModal && (
+          <div
+            style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(10,10,11,.96)", padding: "0 28px", textAlign: "center" }}
+            onClick={() => setSessionCompleteModal(null)}
+          >
+            <div style={{ fontSize: 48, marginBottom: 8 }}>⚡</div>
+            <p style={{ fontSize: 11, fontWeight: 800, color: "var(--green)", textTransform: "uppercase", letterSpacing: ".14em", marginBottom: 6 }}>Session complete</p>
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>
+              {sessionCompleteModal.score}
+              <span style={{ fontSize: 16, color: "var(--text-3)", fontWeight: 700 }}>/100</span>
+            </h2>
+            <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-2)", marginBottom: 16 }}>
+              {sessionCompleteModal.level.toUpperCase()} · {sessionCompleteModal.streak} day streak 🔥
+            </p>
+            <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.55, maxWidth: 260, marginBottom: 28 }}>
+              Your plan has been updated — the next session is already queued based on your current gaps.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSessionCompleteModal(null)}
+              style={{ padding: "14px 32px", borderRadius: "var(--r-sm)", background: "var(--green)", color: "var(--green-ink)", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer" }}
+            >
+              Keep going
+            </button>
+          </div>
         )}
       </div>
     </div>

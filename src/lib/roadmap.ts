@@ -202,12 +202,13 @@ export function generateRoadmap(params: {
     );
 
     const index = nodes.length;
+    const sessionFocus = technicalPick?.category ?? picks[0].category;
     nodes.push({
       id: makeId(),
       index,
-      label: `Day ${index - startIndex + 1}`,
+      label: sessionFocus,
       date: cursor,
-      focusCategory: technicalPick?.category ?? picks[0].category,
+      focusCategory: sessionFocus,
       drillIds: picks.map((d) => d.id),
       estimatedMinutes,
       status: index === startIndex ? "current" : "locked",

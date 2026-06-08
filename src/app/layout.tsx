@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Nunito } from "next/font/google";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -46,7 +47,10 @@ export default function RootLayout({
       lang="en"
       className={`${nunito.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="h-full overflow-hidden">{children}</body>
+      <body className="h-full overflow-hidden">
+        <ServiceWorkerRegistration />
+        {children}
+      </body>
     </html>
   );
 }

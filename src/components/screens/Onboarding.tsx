@@ -9,7 +9,7 @@
 // Renders only its app-bar / content / footer — the App shell supplies the outer
 // phone-shell/phone-column frame, matching every other screen in src/components/screens.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -21,7 +21,8 @@ import {
   Users,
 } from "@phosphor-icons/react";
 
-import { Btn, DrillCapture, Eyebrow, Stepper, type DrillDraft } from "@/components/ui";
+import { Btn, DrillCapture, Eyebrow, Ring, Stepper, type DrillDraft } from "@/components/ui";
+import { computeReadiness } from "@/lib/readiness";
 import { onboardingPhysicalDrills, onboardingTechnicalDrills, type Drill } from "@/data/drillCatalog";
 import {
   blankAssessment,
@@ -131,6 +132,18 @@ function LevelPicker({
   );
 }
 
+const DRAFT_KEY = "varfoot.onboarding-draft";
+
+function loadDraft() {
+  try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "null"); } catch { return null; }
+}
+function saveDraft(data: unknown) {
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {}
+}
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
+}
+
 export function Onboarding({
   initialAssessment,
   onComplete,
@@ -138,9 +151,15 @@ export function Onboarding({
   initialAssessment?: AssessmentState;
   onComplete: (assessment: AssessmentState, drillResults: Record<string, DrillResult>) => void;
 }) {
-  const [stepIndex, setStepIndex] = useState(0);
-  const [assessment, setAssessment] = useState<AssessmentState>(initialAssessment ?? { ...blankAssessment });
-  const [drafts, setDrafts] = useState<Record<string, DrillDraft>>({});
+  const saved = useMemo(() => loadDraft(), []);
+  const [stepIndex, setStepIndex] = useState<number>(() => saved?.stepIndex ?? 0);
+  const [assessment, setAssessment] = useState<AssessmentState>(() => saved?.assessment ?? initialAssessment ?? { ...blankAssessment });
+  const [drafts, setDrafts] = useState<Record<string, DrillDraft>>(() => saved?.drafts ?? {});
+
+  // Persist progress so a mid-wizard browser refresh restores where the player left off.
+  useEffect(() => {
+    saveDraft({ stepIndex, assessment, drafts });
+  }, [stepIndex, assessment, drafts]);
 
   const step = STEPS[stepIndex];
   const measuredSoFar = STEPS.slice(0, stepIndex).filter((s) => s.kind === "drill").length;
@@ -180,6 +199,7 @@ export function Onboarding({
           source: "assessment",
         };
       }
+      clearDraft();
       onComplete(assessment, results);
       return;
     }
@@ -491,20 +511,69 @@ function InfoRow({ label, text }: { label: string; text: string }) {
 
 // ── Done slide ──────────────────────────────────────────────────────────────
 
+const LEVEL_HEADLINES: Record<string, string> = {
+  floor: "Every varsity player started here.",
+  freshman: "Freshman baseline — you have a real foundation.",
+  jv: "JV level — varsity is within reach.",
+  varsity: "You're already at varsity level.",
+};
+
 function DoneSlide({ assessment, drafts }: { assessment: AssessmentState; drafts: Record<string, DrillDraft> }) {
-  const measured = Object.values(drafts).filter((d) => !d.skipped && d.value != null).length;
+  const readiness = useMemo(() => {
+    const drillResults: Record<string, DrillResult> = {};
+    for (const [drillId, draft] of Object.entries(drafts)) {
+      drillResults[drillId] = {
+        drillId,
+        value: draft.skipped ? null : draft.value,
+        recordedAt: new Date().toISOString(),
+        skipped: draft.skipped || undefined,
+        source: "assessment",
+      };
+    }
+    return computeReadiness(assessment, drillResults);
+  }, [assessment, drafts]);
+
+  const score = Math.round(readiness.overall);
+  const pct = score / 100;
   const skipped = Object.values(drafts).filter((d) => d.skipped).length;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", paddingTop: 24 }}>
-      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--green-ghost)", border: "1px solid var(--green-line)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
-        <Check size={32} weight="bold" color="var(--green)" />
-      </div>
-      <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-.03em", marginBottom: 8 }}>
-        Nice work, {assessment.name.split(" ")[0] || "athlete"}.
-      </h1>
-      <p style={{ fontSize: 13, color: "var(--text-3)", lineHeight: 1.6, maxWidth: 320 }}>
-        You logged {measured} drill{measured === 1 ? "" : "s"}{skipped > 0 ? ` and skipped ${skipped} for later` : ""}. Your Varsity Readiness score weighs technical, physical, speed, nutrition, and plan-readiness — built entirely from what you just measured.
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", paddingTop: 16 }}>
+      <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-3)", marginBottom: 20, textTransform: "uppercase", letterSpacing: ".08em" }}>
+        {assessment.name.split(" ")[0] || "Athlete"}&rsquo;s starting point
       </p>
+
+      <Ring size={128} pct={pct} sw={10}>
+        <div style={{ textAlign: "center", lineHeight: 1 }}>
+          <p style={{ fontSize: 38, fontWeight: 900, fontFamily: "var(--font-plex-mono)", color: "var(--green)" }}>{score}</p>
+          <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>/100</p>
+        </div>
+      </Ring>
+
+      <p style={{ fontSize: 13, fontWeight: 800, color: "var(--green)", marginTop: 14, textTransform: "uppercase", letterSpacing: ".1em" }}>
+        {readiness.level.toUpperCase()} LEVEL
+      </p>
+
+      <h1 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-.03em", marginTop: 6, marginBottom: 10, maxWidth: 280 }}>
+        {LEVEL_HEADLINES[readiness.level] ?? "Let's build from here."}
+      </h1>
+
+      <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300, marginBottom: 16 }}>
+        <div style={{ flex: 1, background: "var(--elev)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", padding: "10px 12px" }}>
+          <p style={{ fontSize: 11, color: "var(--green)", fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>Strength</p>
+          <p style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.3 }}>{readiness.strongest.label}</p>
+        </div>
+        <div style={{ flex: 1, background: "var(--elev)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", padding: "10px 12px" }}>
+          <p style={{ fontSize: 11, color: "var(--yellow)", fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>Focus</p>
+          <p style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.3 }}>{readiness.weakest.label}</p>
+        </div>
+      </div>
+
+      {skipped > 0 && (
+        <p style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.5 }}>
+          {skipped} drill{skipped === 1 ? "" : "s"} skipped — you can log those from the drill library anytime.
+        </p>
+      )}
     </div>
   );
 }

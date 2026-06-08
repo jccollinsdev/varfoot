@@ -16,9 +16,22 @@ function delay(ms: number) {
 }
 
 /**
+ * Streams Gemini output as an AsyncGenerator of text chunks. Throws on failure so the
+ * caller (api/coach streaming route) can catch and emit an error SSE event.
+ */
+export async function* streamGemini(prompt: string): AsyncGenerator<string> {
+  if (!ai) throw new Error("AI coaching isn't configured on the server (missing GEMINI_API_KEY).");
+  const stream = await ai.models.generateContentStream({ model: MODEL, contents: prompt });
+  for await (const chunk of stream) {
+    const text = chunk.text;
+    if (text) yield text;
+  }
+}
+
+/**
  * Calls Gemini with one internal retry on transient failure and always returns an explicit
- * ok/error result — callers (api/coach, api/plan) surface `error` directly to the UI's
- * retry state rather than silently substituting fabricated "personalized" text.
+ * ok/error result — callers (api/plan) surface `error` directly to the UI's retry state
+ * rather than silently substituting fabricated "personalized" text.
  */
 export async function askGemini(prompt: string): Promise<GeminiResult> {
   if (!ai) {

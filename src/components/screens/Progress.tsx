@@ -86,9 +86,12 @@ export function Progress({
     [gaps],
   );
 
-  const axes = summary.categories.map((c) => c.label.split(" ")[0]);
-  const you = summary.categories.map((c) => Math.round(c.score));
-  const target = summary.categories.map(() => 100);
+  // Exclude planReadiness from the radar — it's an administrative metric, not a soccer skill,
+  // and "Plan" as a radar axis confuses players.
+  const radarCategories = summary.categories.filter((c) => c.key !== "planReadiness");
+  const axes = radarCategories.map((c) => c.label.split(" ")[0]);
+  const you = radarCategories.map((c) => Math.round(c.score));
+  const target = radarCategories.map(() => 100);
 
   return (
     <>
@@ -115,9 +118,9 @@ export function Progress({
           </FlatCard>
         )}
 
-        <div className="vf-seg" style={{ marginBottom: 16, overflowX: "auto" }}>
+        <div className="vf-seg" style={{ marginBottom: 16, overflowX: "auto", flexShrink: 0 }}>
           {FILTERS.map((f) => (
-            <button key={f.key} type="button" className={cn("vf-seg-btn", filter === f.key && "on")} onClick={() => setFilter(f.key)} style={{ whiteSpace: "nowrap" }}>
+            <button key={f.key} type="button" className={cn("vf-seg-btn", filter === f.key && "on")} onClick={() => setFilter(f.key)} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
               {f.label}
             </button>
           ))}

@@ -123,14 +123,17 @@ export function computeReadiness(
   ];
 
   const overall = weightedComposite(categories.map((c) => ({ score: c.score, weight: c.weight })));
-  const byScore = [...categories].sort((a, b) => b.score - a.score);
+  // Exclude planReadiness from strongest/weakest — it measures admin completion (setting a
+  // tryout date, generating a roadmap), not a soccer skill, so surfacing it as "strongest"
+  // confuses players and gives a misleading picture of athletic readiness.
+  const skillCategories = [...categories.filter((c) => c.key !== "planReadiness")].sort((a, b) => b.score - a.score);
 
   return {
     overall,
     level: classifyReadiness(overall),
     categories,
-    strongest: byScore[0],
-    weakest: byScore[byScore.length - 1],
+    strongest: skillCategories[0],
+    weakest: skillCategories[skillCategories.length - 1],
   };
 }
 

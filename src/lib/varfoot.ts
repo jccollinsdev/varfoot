@@ -187,6 +187,40 @@ export const defaultNutritionTargets = {
   fatTarget: 95,
 };
 
+/**
+ * Compute personalized daily macro targets using Mifflin-St Jeor BMR × activity multiplier
+ * + 200 kcal teen-growth allowance. Macros: 30% protein / 50% carbs / 20% fat.
+ * Falls back to `defaultNutritionTargets` proportions if assessment data is missing.
+ */
+export function computeNutritionTargets(assessment: AssessmentState) {
+  const weightKg = (assessment.weightLbs ?? 155) * 0.453592;
+  const heightCm = (assessment.heightInches ?? 68) * 2.54;
+  const age = Math.max(10, Math.min(30, parseInt(assessment.age) || 16));
+  // Mifflin-St Jeor (male default — soccer training population skews male and PDF benchmarks reflect male targets)
+  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+  const days = assessment.trainingDaysPerWeek;
+  const activityFactor = days <= 1 ? 1.375 : days <= 3 ? 1.55 : days <= 5 ? 1.725 : 1.9;
+  const calorieTarget = Math.round((bmr * activityFactor + 200) / 50) * 50;
+  return {
+    calorieTarget,
+    proteinTarget: Math.round((calorieTarget * 0.30) / 4 / 5) * 5,
+    carbTarget: Math.round((calorieTarget * 0.50) / 4 / 5) * 5,
+    fatTarget: Math.round((calorieTarget * 0.20) / 9 / 5) * 5,
+  };
+}
+
+/** Returns today's date as a local YYYY-MM-DD string (not UTC). */
+export function localTodayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Converts an ISO timestamp to its local-date YYYY-MM-DD string for daily filtering. */
+export function localDateOf(isoStr: string): string {
+  const d = new Date(isoStr);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function makeId() {
   return globalThis.crypto?.randomUUID?.() ?? `varfoot-${Math.random().toString(36).slice(2, 10)}`;
 }
