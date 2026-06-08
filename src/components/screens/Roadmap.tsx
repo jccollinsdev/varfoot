@@ -204,7 +204,7 @@ export function RoadmapSession({
                     <p style={{ fontSize: 13, fontWeight: 800 }}>{drill.name}</p>
                     {logged && <Eyebrow tone="green">Logged</Eyebrow>}
                   </div>
-                  <p style={{ fontSize: 11, color: "var(--text-3)" }}>{drill.category} · ~{drill.estimatedMinutes} min · target {drill.varsityTarget} {drill.unit}</p>
+                  <p style={{ fontSize: 11, color: "var(--text-3)" }}>{drill.category} · ~{drill.estimatedMinutes} min</p>
                 </div>
                 {logged ? <CheckCircle size={18} weight="fill" color="var(--green)" /> : <Play size={16} weight="fill" color="var(--green)" />}
               </button>

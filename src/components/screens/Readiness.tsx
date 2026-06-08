@@ -22,7 +22,7 @@ const LEVEL_BLURB: Record<ReadinessSummary["level"], string> = {
   "below-freshman": "You're earlier in the journey than your target — that's exactly what a roadmap is for.",
   freshman: "You're tracking around freshman level. The gaps below are your fastest path up.",
   jv: "You're firmly in JV range — close the remaining gaps and varsity is within reach.",
-  "varsity-ready": "Your measured numbers are at or above varsity targets. Keep the reps consistent to hold this level.",
+  "varsity-ready": "Your measured numbers are right where they need to be. Keep the reps consistent to hold this level.",
 };
 
 export function Readiness({
@@ -116,7 +116,7 @@ export function Readiness({
             <ListMagnifyingGlass size={20} weight="bold" color="var(--text-2)" />
             <div style={{ textAlign: "left" }}>
               <p style={{ fontSize: 13, fontWeight: 800 }}>See full gap analysis</p>
-              <p style={{ fontSize: 11, color: "var(--text-3)" }}>Every measured drill vs. freshman / JV / varsity targets</p>
+              <p style={{ fontSize: 11, color: "var(--text-3)" }}>Every measured drill, ranked weakest-first</p>
             </div>
           </div>
           <ArrowRight size={16} weight="bold" color="var(--text-3)" />

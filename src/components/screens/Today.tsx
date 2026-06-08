@@ -124,7 +124,7 @@ export function Today({
                 <Eyebrow tone="gold">Biggest gap right now</Eyebrow>
                 <p style={{ fontSize: 13, fontWeight: 800 }}>{topGap.name}</p>
                 <p style={{ fontSize: 11, color: "var(--text-3)" }}>
-                  {topGap.measured ? `${topGap.currentValue} ${topGap.unit} → varsity ${topGap.varsityTarget} ${topGap.unit}` : "Not measured yet"}
+                  {topGap.measured ? `${topGap.currentValue} ${topGap.unit} recorded most recently` : "Not measured yet"}
                 </p>
               </div>
             </div>

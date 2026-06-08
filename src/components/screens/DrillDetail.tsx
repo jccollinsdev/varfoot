@@ -1,7 +1,7 @@
 "use client";
 
 // Drill detail / logging — pulls every field straight from drillCatalog (diagram,
-// setup/action/measurement, equipment, varsity target) and renders the input control
+// setup/action/measurement, equipment) and renders the input control
 // matched to the drill's `inputType` via the shared DrillCapture (ui.tsx). Saving writes
 // into AppState.drillResults (and, when reached from a roadmap session, completes that
 // node) — both paths persist through the existing autosave → varfoot-sync → Supabase chain.
@@ -127,13 +127,6 @@ export function DrillDetail({
         )}
 
         <div className="vf-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginBottom: 18 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".08em" }}>Varsity target</span>
-            <span style={{ fontSize: 15, fontWeight: 900, color: "var(--green)", fontFamily: "var(--font-plex-mono)" }}>
-              {drill.varsityTarget} {drill.unit}
-            </span>
-          </div>
-
           {draft?.skipped ? (
             <div style={{ textAlign: "center", padding: "8px 0" }}>
               <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-2)" }}>Marked as skipped</p>

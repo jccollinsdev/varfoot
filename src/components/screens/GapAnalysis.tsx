@@ -1,8 +1,8 @@
 "use client";
 
-// Full gap-analysis list — every onboarding-measured drill vs. its freshman/JV/varsity
-// targets, weakest-first. Reached via "See full gap analysis" from Readiness. Reuses
-// MetricBar so every bar is direction-aware (a 40s cone slalom against a 10s target reads
+// Full gap-analysis list — every onboarding-measured drill ranked weakest-first. Reached
+// via "See full gap analysis" from Readiness. Reuses MetricBar so every bar is
+// direction-aware (a 40s cone slalom against a 10s target reads
 // as weak, not full) and skipped/unmeasured drills are shown honestly rather than as zero.
 
 import { ArrowRight, Users } from "@phosphor-icons/react";
@@ -29,9 +29,8 @@ export function GapAnalysis({
       <BackBar title="Gap Analysis" sub={`${atVarsity}/${measured.length} at varsity level`} onBack={onBack} />
       <div className="content-area content-scroll" style={{ padding: "20px 18px 28px" }}>
         <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.55, marginBottom: 16 }}>
-          Every drill you measured, ranked weakest-first against the real freshman / JV / varsity targets from the
-          assessment. Bars fill toward varsity in the direction that actually matters for that metric — a faster
-          sprint time fills the bar; a slower one doesn&apos;t.
+          Every drill you measured, ranked weakest-first from the assessment. Bars still fill in the direction that
+          actually matters for that metric — a faster sprint time fills the bar; a slower one doesn&apos;t.
         </p>
 
         {measured.length > 0 && (
@@ -76,7 +75,7 @@ export function GapAnalysis({
                     <Users size={16} weight="bold" color="var(--text-3)" />
                     <div style={{ textAlign: "left" }}>
                       <p style={{ fontSize: 13, fontWeight: 800 }}>{gap.name}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-3)" }}>Skipped during assessment — varsity target {gap.varsityTarget} {gap.unit}</p>
+                      <p style={{ fontSize: 11, color: "var(--text-3)" }}>Skipped during assessment — log it when you&apos;re ready.</p>
                     </div>
                   </div>
                   <ArrowRight size={14} weight="bold" color="var(--text-3)" />

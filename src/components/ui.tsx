@@ -103,27 +103,17 @@ export function MetricBar({
   unit: string;
   anchors: ScoreAnchors;
 }) {
-  const { freshmanTarget, jvTarget, varsityTarget } = anchors;
   const fraction = value == null ? 0 : progressFraction(value, anchors);
   return (
     <div>
       <div className="flex justify-between items-center mb-1.5">
         <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text)" }}>{label}</span>
-        <div className="flex items-center gap-2">
-          <span style={{ fontSize: 11, fontFamily: "var(--font-plex-mono)", color: "var(--green)", fontWeight: 700 }}>
-            {value == null ? "—" : `${value}${unit}`}
-          </span>
-          <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 700 }}>/ {varsityTarget}{unit}</span>
-        </div>
+        <span style={{ fontSize: 11, fontFamily: "var(--font-plex-mono)", color: "var(--green)", fontWeight: 700 }}>
+          {value == null ? "—" : `${value}${unit}`}
+        </span>
       </div>
       <div className="vf-bar" style={{ position: "relative" }}>
         <div className="vf-bar-fill" style={{ width: `${fraction * 100}%` }} />
-        <div style={{ position: "absolute", top: -1, bottom: -1, width: 2, left: "100%", marginLeft: -2, background: "rgba(255,255,255,0.4)", borderRadius: 1 }} />
-      </div>
-      <div className="flex justify-between mt-1" style={{ fontSize: 9, color: "var(--text-3)", fontWeight: 700 }}>
-        <span>Freshman {freshmanTarget}{unit}</span>
-        <span>JV {jvTarget}{unit}</span>
-        <span>Varsity {varsityTarget}{unit}</span>
       </div>
     </div>
   );
@@ -222,7 +212,7 @@ export function Stepper({
         <Minus size={18} weight="bold" />
       </button>
       <div className="vf-stepper-val">
-        <span style={{ fontSize: 22, fontWeight: 900, fontFamily: "var(--font-plex-mono)" }}>{display}</span>
+        <span className="vf-stepper-display" style={{ fontSize: "clamp(18px, 5vw, 22px)", fontWeight: 900, fontFamily: "var(--font-plex-mono)" }}>{display}</span>
       </div>
       <button type="button" className="vf-stepper-btn" onClick={onIncrement} aria-label="Increase">
         <Plus size={18} weight="bold" />

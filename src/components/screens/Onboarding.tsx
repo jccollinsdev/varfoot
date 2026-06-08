@@ -105,13 +105,21 @@ function LevelPicker({
   allowUnset?: boolean;
 }) {
   return (
-    <div className="vf-seg">
+    <div
+      className="vf-seg"
+      style={{
+        display: "grid",
+        gridTemplateColumns: levels.length > 3 ? "repeat(2, minmax(0, 1fr))" : `repeat(${levels.length}, minmax(0, 1fr))`,
+        gap: 4,
+      }}
+    >
       {levels.map((level) => (
         <button
           key={level}
           type="button"
           className={cn("vf-seg-btn", value === level && "on")}
           onClick={() => onChange(level)}
+          style={{ minHeight: 42, whiteSpace: "normal", lineHeight: 1.2 }}
         >
           {teamLevelLabels[level]}
         </button>
@@ -252,30 +260,26 @@ function SlideHeading({ eyebrow, title, sub }: { eyebrow: string; title: string;
 function IdentitySlide({ assessment, onChange }: { assessment: AssessmentState; onChange: (patch: Partial<AssessmentState>) => void }) {
   return (
     <div>
-      <SlideHeading eyebrow="Step 1 · Profile" title="Tell us about you" sub="This frames every target in the assessment — varsity benchmarks differ by age and position." />
+      <SlideHeading eyebrow="Step 1 · Profile" title="Tell us about you" sub="This frames the assessment around your age and position so the training plan feels tailored to you." />
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <FieldLabel>Full name</FieldLabel>
           <input className="vf-input" placeholder="e.g. Jordan Reyes" value={assessment.name} onChange={(e) => onChange({ name: e.target.value })} />
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <FieldLabel>Age</FieldLabel>
             <input className="vf-input" inputMode="numeric" placeholder="16" value={assessment.age} onChange={(e) => onChange({ age: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} />
           </div>
-          <div style={{ flex: 2 }}>
-            <FieldLabel>School</FieldLabel>
-            <input className="vf-input" placeholder="e.g. Lincoln High" value={assessment.school} onChange={(e) => onChange({ school: e.target.value })} />
+          <div style={{ flex: 1 }}>
+            <FieldLabel>Position</FieldLabel>
+            <select className="vf-input" value={assessment.position} onChange={(e) => onChange({ position: e.target.value })}>
+              <option value="">Select your position</option>
+              {POSITION_OPTIONS.map((position) => (
+                <option key={position} value={position}>{position}</option>
+              ))}
+            </select>
           </div>
-        </div>
-        <div>
-          <FieldLabel>Position</FieldLabel>
-          <select className="vf-input" value={assessment.position} onChange={(e) => onChange({ position: e.target.value })}>
-            <option value="">Select your position</option>
-            {POSITION_OPTIONS.map((position) => (
-              <option key={position} value={position}>{position}</option>
-            ))}
-          </select>
         </div>
       </div>
     </div>
@@ -442,12 +446,6 @@ function DrillSlide({
       )}
 
       <div className="vf-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".08em" }}>Varsity target</span>
-          <span style={{ fontSize: 15, fontWeight: 900, color: "var(--green)", fontFamily: "var(--font-plex-mono)" }}>
-            {drill.varsityTarget}{drill.unit.includes("/") ? "" : ` ${drill.unit}`}
-          </span>
-        </div>
         {draft?.skipped ? (
           <div style={{ textAlign: "center", padding: "8px 0" }}>
             <p style={{ fontSize: 13, fontWeight: 800, color: "var(--text-2)" }}>Marked as skipped</p>

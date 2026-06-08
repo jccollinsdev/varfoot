@@ -270,6 +270,7 @@ function App() {
       if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
       const activeScrollArea = shell.querySelector<HTMLElement>(".content-scroll");
       if (!activeScrollArea) return;
+      if (event.target instanceof Node && activeScrollArea.contains(event.target)) return;
       const canScroll = activeScrollArea.scrollHeight > activeScrollArea.clientHeight;
       if (!canScroll) return;
       activeScrollArea.scrollTop += event.deltaY;

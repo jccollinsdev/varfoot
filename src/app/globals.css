@@ -133,11 +133,15 @@ body {
   min-width: 0;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: auto;
   touch-action: pan-y;
+  scrollbar-gutter: stable;
 }
 
-.content-scroll { overflow-y: auto; }
+.content-scroll {
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+}
 .content-fixed  { overflow-y: hidden; }
 
 /* ── Bottom tab bar ───────────────────────────────────────────────────────── */
@@ -239,6 +243,7 @@ body {
 .vf-seg {
   display: flex; gap: 4px; background: var(--surface-2);
   padding: 4px; border-radius: var(--r-sm); border: 1px solid var(--border-soft);
+  min-width: 0;
 }
 .vf-seg-btn {
   flex: 1; border: none; background: transparent;
@@ -246,6 +251,8 @@ body {
   font-family: var(--font-nunito), sans-serif;
   padding: 7px 4px; border-radius: var(--r-xs); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .vf-seg-btn.on { background: var(--elev); color: var(--text); }
 
@@ -281,7 +288,13 @@ body {
 
 /* ── Stepper ──────────────────────────────────────────────────────────────── */
 
-.vf-stepper { display: flex; align-items: stretch; gap: 8px; }
+.vf-stepper {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) 50px;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
 .vf-stepper-btn {
   width: 50px; height: 50px; border-radius: var(--r-sm);
   background: var(--elev); border: 1px solid var(--border);
@@ -298,35 +311,10 @@ body {
   min-width: 0;
 }
 .vf-stepper-val span { white-space: nowrap; }
-
-.vf-two-col {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.vf-day-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.vf-day-btn {
-  border: 1px solid var(--border-soft);
-  background: var(--surface-2);
-  color: var(--text-2);
-  border-radius: var(--r-sm);
-  min-height: 42px;
-  font-size: 12px;
-  font-weight: 800;
-  font-family: var(--font-nunito), sans-serif;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.vf-day-btn.on {
-  background: var(--green-ghost);
-  border-color: var(--green-line);
-  color: var(--green);
+.vf-stepper-display {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Hatched diagram placeholder ──────────────────────────────────────────── */
@@ -394,9 +382,9 @@ body {
 
 .vf-footer {
   flex-shrink: 0;
-  position: sticky; bottom: 0; left: 0; right: 0;
   padding: 12px 16px 16px;
-  background: linear-gradient(0deg, var(--bg) 70%, transparent);
+  background: linear-gradient(0deg, var(--bg) 82%, rgba(10,10,11,.96));
+  border-top: 1px solid var(--border-soft);
   display: flex; gap: 10px;
   z-index: 2;
 }
@@ -436,12 +424,19 @@ body {
 .vf-divider { height: 1px; background: var(--border-soft); }
 
 @media (max-width: 380px) {
-  .vf-two-col {
-    grid-template-columns: 1fr;
+  .app-bar {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
-  .vf-day-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .vf-stepper {
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    gap: 6px;
+  }
+
+  .vf-stepper-btn {
+    width: 42px;
+    height: 46px;
   }
 }
 

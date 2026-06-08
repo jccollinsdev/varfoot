@@ -19,7 +19,7 @@ export function buildCoachContext(state: AppState): string {
   const lines: string[] = [];
 
   lines.push(
-    `Player: ${assessment.name || "unnamed"}, age ${assessment.age || "unknown"}, position ${assessment.position || "unknown"}, school ${assessment.school || "unknown"}.`,
+    `Player: ${assessment.name || "unnamed"}, age ${assessment.age || "unknown"}, position ${assessment.position || "unknown"}.`,
   );
   lines.push(
     `Goal: make the ${teamLevelLabels[assessment.targetLevel]} team` +
@@ -43,10 +43,10 @@ export function buildCoachContext(state: AppState): string {
   );
 
   if (gaps.length) {
-    lines.push("Largest gaps to varsity targets (weakest first):");
+    lines.push("Largest measured gaps right now (weakest first):");
     for (const gap of gaps) {
       const status = gap.measured
-        ? `currently ${gap.currentValue} ${gap.unit} vs. varsity target ${gap.varsityTarget} ${gap.unit} (score ${gap.score.toFixed(0)}/100)`
+        ? `currently ${gap.currentValue} ${gap.unit} (score ${gap.score.toFixed(0)}/100)`
         : "not yet measured";
       lines.push(`- ${gap.name} [${gap.category}]: ${status}`);
     }

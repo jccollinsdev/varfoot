@@ -1,7 +1,7 @@
 "use client";
 
 // Avatar bottom-sheet — ported from the legacy ProfileSheet onto the new AppState shape
-// (assessment.name/school/position). Same actions: load demo athlete, reset all data,
+// (assessment.name/position). Same actions: load demo athlete, reset all data,
 // sign out (cloud mode only), close. Sync-state label map kept verbatim.
 
 import type { AppState } from "@/lib/varfoot";
@@ -51,7 +51,7 @@ export function Profile({
             <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: 19, fontWeight: 900, letterSpacing: "-.04em" }}>{state.assessment.name || "Athlete"}</p>
               <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {state.assessment.school || "—"} · {state.assessment.position || "—"}
+                {state.assessment.position || "—"}
               </p>
               <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".18em", color: "var(--text-3)", marginTop: 2 }}>
                 {SYNC_LABELS[syncState] ?? syncState}

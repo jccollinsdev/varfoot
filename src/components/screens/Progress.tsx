@@ -56,7 +56,7 @@ function GapRow({ gap, onOpen }: { gap: GapItem; onOpen: (drillId: string) => vo
           anchors={{ freshmanTarget: gap.freshmanTarget, jvTarget: gap.jvTarget, varsityTarget: gap.varsityTarget, scoreDirection: gap.scoreDirection }}
         />
       ) : (
-        <p style={{ fontSize: 11, color: "var(--text-3)" }}>Not measured yet — varsity target {gap.varsityTarget} {gap.unit}</p>
+        <p style={{ fontSize: 11, color: "var(--text-3)" }}>Not measured yet — log a result to see how you stack up.</p>
       )}
     </button>
   );
