@@ -242,6 +242,12 @@ function App() {
 
   const [stack, setStack] = useState<Screen[]>(() => [{ id: state.activeTab }]);
   const [rootTab, setRootTab] = useState<RootTab>(() => state.activeTab);
+
+  // varfoot.vercel.app = bare app; varfooty.vercel.app = landing + phone sim
+  const [isAppOnly, setIsAppOnly] = useState(false);
+  useEffect(() => {
+    if (window.location.hostname === "varfoot.vercel.app") setIsAppOnly(true);
+  }, []);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -801,8 +807,8 @@ function App() {
 
   return (
     <div className="vf-app-root">
-      <LandingPanel />
-      {/* Mobile only — hidden on desktop via CSS */}
+      {!isAppOnly && <LandingPanel />}
+      {/* varfooty.vercel.app: right panel with live phone; varfoot.vercel.app: fills viewport */}
       <div className="vf-phone-side">
         <div className="phone-shell">
           <div ref={shellRef} className="phone-column">
@@ -814,65 +820,6 @@ function App() {
   );
 }
 
-const SCREENS = [
-  { src: "/screenshots/01-today.png",    label: "Today",  caption: "Daily dashboard" },
-  { src: "/screenshots/02-roadmap.png",  label: "Plan",   caption: "Training roadmap" },
-  { src: "/screenshots/03-progress.png", label: "Train",  caption: "Skills & progress" },
-  { src: "/screenshots/04-nutrition.png",label: "Fuel",   caption: "Nutrition tracking" },
-  { src: "/screenshots/05-coach.png",    label: "Coach",  caption: "AI coach" },
-];
-
-function ScreenshotCarousel() {
-  const [idx, setIdx] = useState(0);
-  const [prev, setPrev] = useState<number | null>(null);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      setIdx((i) => {
-        setPrev(i);
-        return (i + 1) % SCREENS.length;
-      });
-    }, 4000);
-    return () => clearInterval(t);
-  }, []);
-
-  const go = (n: number) => {
-    setPrev(idx);
-    setIdx(n);
-  };
-
-  const s = SCREENS[idx];
-
-  return (
-    <div className="vf-car">
-      <div className="vf-car-phone">
-        <div className="vf-car-inner">
-          {SCREENS.map((scr, i) => (
-            <img
-              key={scr.src}
-              src={scr.src}
-              alt={scr.label}
-              className={`vf-car-slide${i === idx ? " active" : i === prev ? " out" : ""}`}
-            />
-          ))}
-        </div>
-        <div className="vf-car-notch" />
-        <div className="vf-car-bar" />
-      </div>
-      <div className="vf-car-meta">
-        <span className="vf-car-label">{s.label}</span>
-        <span className="vf-car-caption">{s.caption}</span>
-      </div>
-      <div className="vf-car-dots">
-        {SCREENS.map((sc, i) => (
-          <button key={i} type="button" aria-label={sc.label}
-            className={`vf-car-dot${i === idx ? " on" : ""}`}
-            onClick={() => go(i)} />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function LandingPanel() {
   return (
@@ -890,7 +837,7 @@ function LandingPanel() {
             </div>
             <nav className="vf-header-nav">
               <a href="https://github.com/jccollinsdev/varfoot" className="vf-nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
-              <a href="https://varfooty.vercel.app" className="vf-nav-cta" target="_blank" rel="noopener noreferrer">Open app</a>
+              <a href="https://varfoot.vercel.app" className="vf-nav-cta" target="_blank" rel="noopener noreferrer">Open app ↗</a>
             </nav>
           </header>
 
@@ -905,7 +852,7 @@ function LandingPanel() {
               VarFooty scores your Varsity Readiness across 5 pillars, ranks your biggest gaps, and builds a roadmap that updates after every session.
             </p>
             <div className="vf-ctas">
-              <a href="https://varfooty.vercel.app" className="vf-btn-primary" target="_blank" rel="noopener noreferrer">
+              <a href="https://varfoot.vercel.app" className="vf-btn-primary" target="_blank" rel="noopener noreferrer">
                 Try it out <span aria-hidden>→</span>
               </a>
               <a href="#how-it-works" className="vf-btn-ghost">How it works</a>
@@ -918,12 +865,6 @@ function LandingPanel() {
               <span className="vf-istat"><b>AI</b> coach</span>
             </div>
           </div>
-        </div>
-
-        {/* RIGHT COLUMN — phone carousel */}
-        <div className="vf-hero-right">
-          <div className="vf-hero-right-glow" />
-          <ScreenshotCarousel />
         </div>
 
       </section>

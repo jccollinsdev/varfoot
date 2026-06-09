@@ -536,8 +536,14 @@ body {
 }
 
 @media (min-width: 900px) {
-  .vf-phone-side  { display: none !important; }
+  /* Side-by-side layout when landing panel is present */
+  .vf-app-root {
+    display: flex;
+    height: 100dvh;
+    overflow: hidden;
+  }
 
+  /* ── Left: marketing panel ──────────────────────────────────────────── */
   .vf-landing-panel {
     display: flex;
     flex-direction: column;
@@ -556,6 +562,64 @@ body {
     background-size: 52px 52px;
   }
   .vf-landing-panel::-webkit-scrollbar { display: none; }
+
+  /* ── Right: live phone simulator (only when landing panel is present) ── */
+  .vf-landing-panel ~ .vf-phone-side {
+    display: flex !important;       /* override display:contents */
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 440px;
+    height: 100dvh;
+    background: #050608;
+    border-left: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Green glow behind phone */
+  .vf-landing-panel ~ .vf-phone-side::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 70% at 50% 44%, rgba(57,255,115,0.07) 0%, transparent 68%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Un-fix the phone shell so it sits inside the panel */
+  .vf-landing-panel ~ .vf-phone-side .phone-shell {
+    position: relative !important;
+    inset: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    z-index: 1;
+  }
+
+  /* Phone frame sizing */
+  .vf-landing-panel ~ .vf-phone-side .phone-column {
+    width: 325px !important;
+    height: min(703px, calc(100dvh - 80px)) !important;
+    border-radius: 46px !important;
+    border: 1.5px solid rgba(255,255,255,0.1) !important;
+    box-shadow:
+      0 0 0 7px #0b0d12,
+      0 0 0 8px rgba(255,255,255,0.055),
+      0 60px 120px rgba(0,0,0,0.75),
+      0 20px 50px rgba(0,0,0,0.5) !important;
+  }
+
+  /* Adjust bar/nav padding for the narrower frame */
+  .vf-landing-panel ~ .vf-phone-side .phone-column .app-bar,
+  .vf-landing-panel ~ .vf-phone-side .phone-column .bottom-nav {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  .vf-landing-panel ~ .vf-phone-side .phone-column .app-bar {
+    padding-top: 22px !important;
+  }
 }
 
 /* ── Hero grid (full viewport height) ───────────────────────────────────── */
@@ -566,10 +630,12 @@ body {
 
 @media (min-width: 900px) {
   .vf-hero {
-    display: grid;
-    grid-template-columns: 56fr 44fr;
+    display: flex;
+    flex: 1;
     min-height: 100dvh;
-    position: relative;
+  }
+  .vf-hero-left {
+    flex: 1;   /* fills full width now that the right column is gone */
   }
 }
 
