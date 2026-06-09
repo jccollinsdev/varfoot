@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Nunito } from "next/font/google";
+import { Barlow_Condensed, IBM_Plex_Mono, Nunito } from "next/font/google";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
 
@@ -15,14 +15,20 @@ const plexMono = IBM_Plex_Mono({
   weight: ["400", "700"],
 });
 
+const barlowCondensed = Barlow_Condensed({
+  variable: "--font-barlow",
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+});
+
 export const metadata: Metadata = {
-  title: "VarFoot",
+  title: "VarFooty",
   description: "Train with purpose. Make varsity.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "VarFoot",
+    title: "VarFooty",
   },
   icons: {
     icon: "/varfoot-mark.svg",
@@ -44,7 +50,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${nunito.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${nunito.variable} ${plexMono.variable} ${barlowCondensed.variable} h-full antialiased`}
     >
       <body className="h-full overflow-hidden">
         <ServiceWorkerRegistration />

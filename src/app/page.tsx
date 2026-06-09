@@ -6,6 +6,7 @@
 // this shell supplies the outer phone-shell/phone-column frame, the bottom nav, and
 // the profile sheet overlay — see the per-screen files for that convention's rationale.
 
+import Image from "next/image";
 import {
   useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore,
 } from "react";
@@ -601,25 +602,76 @@ function App() {
 
   // ─── Gates ──────────────────────────────────────────────────────────────────
 
-  if (!hydrated) return <LoadingScreen message="Loading VarFoot…" />;
-  if (!localMode && !demoMode && !guestMode && (authLoading || bootstrapLoading)) return <LoadingScreen message="Loading your profile…" />;
-  if (!localMode && !demoMode && !guestMode && !session) {
-    return <Auth loading={authLoading} error={authError} note={authNote} onSubmit={handleAuthSubmit} onLoadDemo={loadDemo} />;
-  }
-  if (!state.onboardingComplete) {
+  function renderPhoneContent() {
+    if (!hydrated) return <LoadingScreen message="Loading VarFooty…" />;
+    if (!localMode && !demoMode && !guestMode && (authLoading || bootstrapLoading)) return <LoadingScreen message="Loading your profile…" />;
+    if (!localMode && !demoMode && !guestMode && !session) {
+      return <Auth loading={authLoading} error={authError} note={authNote} onSubmit={handleAuthSubmit} onLoadDemo={loadDemo} />;
+    }
+    if (!state.onboardingComplete) {
+      return <Onboarding initialAssessment={state.assessment} onComplete={handleOnboardComplete} />;
+    }
+
+    const showNav = isRootScreen(current);
+    const avatarTap = () => setShowProfile(true);
+
     return (
-      <div className="phone-shell">
-        <div className="phone-column">
-          <Onboarding initialAssessment={state.assessment} onComplete={handleOnboardComplete} />
-        </div>
-      </div>
+      <>
+        {authError && !showProfile && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: "rgba(255,107,94,.08)", borderBottom: "1px solid rgba(255,107,94,.14)", color: "var(--red)", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ flex: 1 }}>{authError}</span>
+            <button type="button" onClick={() => setAuthError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)" }}><X size={16} /></button>
+          </div>
+        )}
+        {renderScreen(avatarTap)}
+        {showNav && <BottomNav active={rootTab} onSelect={goTab} />}
+        {showProfile && (
+          <Profile
+            state={state}
+            localMode={localMode}
+            syncState={effectiveSyncState}
+            onSignOut={handleSignOut}
+            onLoadDemo={loadDemo}
+            onReset={resetAll}
+            onClose={() => setShowProfile(false)}
+          />
+        )}
+        {sessionCompleteModal && (
+          <div
+            style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(10,10,11,.96)", padding: "0 24px", textAlign: "center" }}
+            onClick={() => setSessionCompleteModal(null)}
+          >
+            <div style={{ fontSize: 48, marginBottom: 8 }}>⚡</div>
+            <p style={{ fontSize: 11, fontWeight: 800, color: "var(--green)", textTransform: "uppercase", letterSpacing: ".14em", marginBottom: 6 }}>Session complete</p>
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>
+              {sessionCompleteModal.score}
+              <span style={{ fontSize: 16, color: "var(--text-3)", fontWeight: 700 }}>/100</span>
+            </h2>
+            {sessionCompleteModal.delta !== 0 && (
+              <p style={{ fontSize: 14, fontWeight: 900, color: sessionCompleteModal.delta > 0 ? "var(--green)" : "var(--red)", marginBottom: 4 }}>
+                {sessionCompleteModal.delta > 0 ? "+" : ""}{sessionCompleteModal.delta} pts
+              </p>
+            )}
+            <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-2)", marginBottom: 16 }}>
+              {sessionCompleteModal.level.toUpperCase()} · {sessionCompleteModal.streak} day streak 🔥
+            </p>
+            <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.55, maxWidth: 260, marginBottom: 28 }}>
+              Your plan has been updated — the next session is already queued based on your current gaps.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSessionCompleteModal(null)}
+              style={{ padding: "14px 32px", borderRadius: "var(--r-sm)", background: "var(--green)", color: "var(--green-ink)", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer" }}
+            >
+              Keep going
+            </button>
+          </div>
+        )}
+      </>
     );
   }
 
-  const showNav = isRootScreen(current);
-  const avatarTap = () => setShowProfile(true);
-
-  function renderScreen() {
+  function renderScreen(avatarTap: () => void) {
     switch (current.id) {
       case "today":
         return (
@@ -748,62 +800,119 @@ function App() {
   }
 
   return (
-    <div className="phone-shell">
-      <div ref={shellRef} className="phone-column">
-        {authError && !showProfile && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: "rgba(255,107,94,.08)", borderBottom: "1px solid rgba(255,107,94,.14)", color: "var(--red)", fontSize: 13, fontWeight: 600 }}>
-            <span style={{ flex: 1 }}>{authError}</span>
-            <button type="button" onClick={() => setAuthError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)" }}><X size={16} /></button>
+    <div className="vf-app-root">
+      <LandingPanel />
+      <div className="vf-phone-side">
+        <div className="phone-shell">
+          <div ref={shellRef} className="phone-column">
+            {renderPhoneContent()}
           </div>
-        )}
-
-        {renderScreen()}
-
-        {showNav && <BottomNav active={rootTab} onSelect={goTab} />}
-        {showProfile && (
-          <Profile
-            state={state}
-            localMode={localMode}
-            syncState={effectiveSyncState}
-            onSignOut={handleSignOut}
-            onLoadDemo={loadDemo}
-            onReset={resetAll}
-            onClose={() => setShowProfile(false)}
-          />
-        )}
-        {sessionCompleteModal && (
-          <div
-            style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(10,10,11,.96)", padding: "0 24px", textAlign: "center" }}
-            onClick={() => setSessionCompleteModal(null)}
-          >
-            <div style={{ fontSize: 48, marginBottom: 8 }}>⚡</div>
-            <p style={{ fontSize: 11, fontWeight: 800, color: "var(--green)", textTransform: "uppercase", letterSpacing: ".14em", marginBottom: 6 }}>Session complete</p>
-            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>
-              {sessionCompleteModal.score}
-              <span style={{ fontSize: 16, color: "var(--text-3)", fontWeight: 700 }}>/100</span>
-            </h2>
-            {sessionCompleteModal.delta !== 0 && (
-              <p style={{ fontSize: 14, fontWeight: 900, color: sessionCompleteModal.delta > 0 ? "var(--green)" : "var(--red)", marginBottom: 4 }}>
-                {sessionCompleteModal.delta > 0 ? "+" : ""}{sessionCompleteModal.delta} pts
-              </p>
-            )}
-            <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-2)", marginBottom: 16 }}>
-              {sessionCompleteModal.level.toUpperCase()} · {sessionCompleteModal.streak} day streak 🔥
-            </p>
-            <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.55, maxWidth: 260, marginBottom: 28 }}>
-              Your plan has been updated — the next session is already queued based on your current gaps.
-            </p>
-            <button
-              type="button"
-              onClick={() => setSessionCompleteModal(null)}
-              style={{ padding: "14px 32px", borderRadius: "var(--r-sm)", background: "var(--green)", color: "var(--green-ink)", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer" }}
-            >
-              Keep going
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     </div>
+  );
+}
+
+// Set to a YouTube embed URL once the demo video is recorded, e.g.:
+// "https://www.youtube.com/embed/YOUR_VIDEO_ID"
+const DEMO_VIDEO_URL = "";
+
+function LandingPanel() {
+  return (
+    <aside className="vf-landing-panel">
+      {/* Top bar */}
+      <div className="vf-lp-topbar">
+        <div className="vf-lp-brand">
+          <Image src="/varfoot-mark.svg" alt="" width={24} height={24} style={{ borderRadius: 6 }} />
+          <span className="vf-lp-brand-name">VarFooty</span>
+        </div>
+        <div className="vf-lp-toplinks">
+          <a href="https://github.com/jccollinsdev/varfoot" className="vf-lp-toplink" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://varfoot.vercel.app" className="vf-lp-toplink" target="_blank" rel="noopener noreferrer">Live app</a>
+        </div>
+      </div>
+
+      {/* Hero */}
+      <div>
+        <div className="vf-lp-badge">
+          <span className="vf-lp-badge-dot" />
+          LexHack &rsquo;26
+        </div>
+        <h1 className="vf-lp-headline">
+          Train with<br />
+          purpose.
+          <span className="lp-green">Make varsity.</span>
+        </h1>
+        <p className="vf-lp-sub">
+          Built for JV, freshman, and club players who need more than more drills.
+          VarFooty scores your Varsity Readiness across 5 soccer pillars, ranks your
+          gaps, and builds a personalized training roadmap — updated after every session.
+        </p>
+      </div>
+
+      {/* Feature stats */}
+      <div className="vf-lp-features">
+        <div className="vf-lp-feat">
+          <span className="vf-lp-feat-num">19</span>
+          <span className="vf-lp-feat-label">Drill assessment</span>
+        </div>
+        <div className="vf-lp-feat">
+          <span className="vf-lp-feat-num">0–100</span>
+          <span className="vf-lp-feat-label">Readiness score</span>
+        </div>
+        <div className="vf-lp-feat">
+          <span className="vf-lp-feat-num">AI</span>
+          <span className="vf-lp-feat-label">Personalized coach</span>
+        </div>
+      </div>
+
+      {/* Demo video */}
+      <div className="vf-lp-video-wrap">
+        <p className="vf-lp-section-label">Demo</p>
+        <div className="vf-lp-video">
+          {DEMO_VIDEO_URL ? (
+            <iframe
+              src={DEMO_VIDEO_URL}
+              title="VarFooty demo video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <div className="vf-lp-video-placeholder">
+              <div className="vf-lp-video-play-btn">▶</div>
+              <span className="vf-lp-video-hint">Demo video — coming soon</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* How it works */}
+      <div>
+        <p className="vf-lp-section-label">How it works</p>
+        <div className="vf-lp-steps">
+          <div className="vf-lp-step">
+            <span className="vf-lp-step-num">01</span>
+            <span className="vf-lp-step-text">Complete the 19-drill baseline — mostly solo, takes under 30 min</span>
+          </div>
+          <div className="vf-lp-step">
+            <span className="vf-lp-step-num">02</span>
+            <span className="vf-lp-step-text">Get your Varsity Readiness score across 5 pillars with weakest gaps ranked</span>
+          </div>
+          <div className="vf-lp-step">
+            <span className="vf-lp-step-num">03</span>
+            <span className="vf-lp-step-text">Follow the gap-first roadmap — re-prioritized automatically after each session</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="vf-lp-footer">
+        <span className="vf-lp-footer-text">LexHack &rsquo;26 · Theme: Build for Someone Real</span>
+        <span className="vf-lp-footer-text">Sansar Karki &amp; Saaransh &middot;{" "}
+          <a href="https://varfoot.vercel.app" target="_blank" rel="noopener noreferrer">varfoot.vercel.app</a>
+        </span>
+      </div>
+    </aside>
   );
 }
 

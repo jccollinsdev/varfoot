@@ -518,3 +518,377 @@ body {
 
 .paper-chip { border: 1px solid var(--border-soft); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
 .paper-chip-active { background: var(--green-ghost); border-color: var(--green-line); color: var(--green); }
+
+/* ── Desktop landing layout ──────────────────────────────────────────────── */
+
+.vf-app-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  background: #07080a;
+}
+
+.vf-phone-side {
+  display: contents;
+}
+
+.vf-landing-panel {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .vf-landing-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 320px;
+    height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 36px 52px 48px;
+    background: linear-gradient(155deg, #09090d 0%, #070809 55%, #080b0e 100%);
+    position: relative;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .vf-landing-panel::-webkit-scrollbar { display: none; }
+
+  .vf-landing-panel::before {
+    content: '';
+    position: absolute;
+    top: -15%;
+    left: -5%;
+    width: 65%;
+    height: 65%;
+    background: radial-gradient(ellipse, rgba(57,255,115,0.045) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .vf-landing-panel > * { position: relative; z-index: 1; }
+
+  .vf-phone-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    background: #040506;
+    padding: 28px 44px;
+    border-left: 1px solid rgba(255,255,255,0.035);
+    position: relative;
+  }
+
+  .vf-phone-side::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 75% 55% at 50% 50%, rgba(57,255,115,0.022) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  /* Override phone-shell inside landing context */
+  .vf-phone-side .phone-shell {
+    position: static !important;
+    background: transparent;
+    padding: 0;
+    min-height: 0;
+    width: auto;
+    height: auto;
+    display: block;
+  }
+
+  .vf-phone-side .phone-column {
+    position: relative;
+    width: 365px;
+    height: min(790px, calc(100dvh - 56px));
+    border-radius: 50px;
+    border: 1px solid rgba(255,255,255,0.075);
+    box-shadow:
+      0 0 0 5px rgba(0,0,0,0.97),
+      0 0 0 6px rgba(255,255,255,0.025),
+      0 44px 110px rgba(0,0,0,0.68),
+      0 18px 45px rgba(0,0,0,0.42),
+      inset 0 1px 0 rgba(255,255,255,0.08),
+      0 0 80px rgba(57,255,115,0.035);
+  }
+
+  /* Reset bar padding inside the landing phone frame */
+  .vf-phone-side .phone-column .app-bar,
+  .vf-phone-side .phone-column .bottom-nav {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .vf-phone-side .phone-column .app-bar { padding-top: 6px !important; }
+}
+
+/* ── Landing panel sections ──────────────────────────────────────────────── */
+
+.vf-lp-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 48px;
+  flex-shrink: 0;
+}
+
+.vf-lp-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.vf-lp-brand-name {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -.03em;
+  color: var(--text);
+}
+
+.vf-lp-toplinks {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.vf-lp-toplink {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-decoration: none;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  transition: color .15s;
+}
+.vf-lp-toplink:hover { color: var(--text-2); }
+
+.vf-lp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 100px;
+  border: 1px solid rgba(57,255,115,0.18);
+  background: rgba(57,255,115,0.055);
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  width: fit-content;
+}
+
+.vf-lp-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: lp-badge-pulse 2.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes lp-badge-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.65); }
+}
+
+.vf-lp-headline {
+  font-family: var(--font-barlow), var(--font-nunito), system-ui;
+  font-size: clamp(52px, 7vw, 92px);
+  font-weight: 900;
+  line-height: .9;
+  letter-spacing: -.005em;
+  color: var(--text);
+  text-transform: uppercase;
+  margin-bottom: 22px;
+}
+
+.vf-lp-headline .lp-green {
+  color: var(--green);
+  display: block;
+}
+
+.vf-lp-sub {
+  font-size: 13.5px;
+  line-height: 1.68;
+  color: var(--text-3);
+  font-weight: 600;
+  max-width: 400px;
+  margin-bottom: 36px;
+}
+
+/* Feature stat cards */
+.vf-lp-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 36px;
+}
+
+.vf-lp-feat {
+  padding: 14px 14px 12px;
+  background: rgba(255,255,255,0.018);
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 10px;
+  transition: border-color .2s;
+}
+.vf-lp-feat:hover { border-color: rgba(57,255,115,0.15); }
+
+.vf-lp-feat-num {
+  display: block;
+  font-family: var(--font-barlow), var(--font-nunito);
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--green);
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
+.vf-lp-feat-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+/* Section label */
+.vf-lp-section-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 10px;
+}
+
+/* Demo video */
+.vf-lp-video-wrap { margin-bottom: 32px; }
+
+.vf-lp-video {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.016);
+  border: 1px solid rgba(255,255,255,0.055);
+  position: relative;
+}
+
+.vf-lp-video iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.vf-lp-video-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.vf-lp-video-play-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(57,255,115,0.1);
+  border: 1px solid rgba(57,255,115,0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+  font-size: 20px;
+  transition: background .2s, border-color .2s;
+}
+.vf-lp-video:hover .vf-lp-video-play-btn {
+  background: rgba(57,255,115,0.16);
+  border-color: rgba(57,255,115,0.35);
+}
+
+.vf-lp-video-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: .02em;
+}
+
+/* How it works steps */
+.vf-lp-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 36px;
+}
+
+.vf-lp-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.vf-lp-step-num {
+  font-family: var(--font-plex-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--green);
+  opacity: 0.55;
+  padding-top: 3px;
+  flex-shrink: 0;
+  min-width: 20px;
+  letter-spacing: .04em;
+}
+
+.vf-lp-step-text {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+/* Footer */
+.vf-lp-footer {
+  margin-top: auto;
+  padding-top: 28px;
+  border-top: 1px solid rgba(255,255,255,0.045);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vf-lp-footer-text {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.vf-lp-footer-text a {
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color .15s;
+}
+.vf-lp-footer-text a:hover { color: var(--green); }
+
+/* Entrance animations */
+@keyframes lp-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.vf-landing-panel .vf-lp-topbar  { animation: lp-fade-up 400ms ease-out both; }
+.vf-landing-panel .vf-lp-badge   { animation: lp-fade-up 450ms ease-out 80ms both; }
+.vf-landing-panel .vf-lp-headline{ animation: lp-fade-up 480ms ease-out 140ms both; }
+.vf-landing-panel .vf-lp-sub     { animation: lp-fade-up 460ms ease-out 200ms both; }
+.vf-landing-panel .vf-lp-features{ animation: lp-fade-up 460ms ease-out 260ms both; }
+.vf-landing-panel .vf-lp-video-wrap { animation: lp-fade-up 460ms ease-out 320ms both; }
+.vf-landing-panel .vf-lp-steps   { animation: lp-fade-up 460ms ease-out 380ms both; }
+.vf-landing-panel .vf-lp-footer  { animation: lp-fade-up 440ms ease-out 440ms both; }
