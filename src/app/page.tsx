@@ -814,59 +814,60 @@ function App() {
   );
 }
 
-// Set to a YouTube embed URL once the demo video is recorded, e.g.:
-// "https://www.youtube.com/embed/YOUR_VIDEO_ID"
-const DEMO_VIDEO_URL = "";
-
 const SCREENS = [
-  { src: "/screenshots/01-today.png",    label: "Today",  caption: "Daily dashboard & readiness" },
-  { src: "/screenshots/02-roadmap.png",  label: "Plan",   caption: "Gap-first training roadmap" },
-  { src: "/screenshots/03-progress.png", label: "Train",  caption: "Skills radar & score history" },
-  { src: "/screenshots/04-nutrition.png",label: "Fuel",   caption: "Personalized nutrition tracking" },
-  { src: "/screenshots/05-coach.png",    label: "Coach",  caption: "AI coach grounded in your data" },
+  { src: "/screenshots/01-today.png",    label: "Today",  caption: "Daily dashboard" },
+  { src: "/screenshots/02-roadmap.png",  label: "Plan",   caption: "Training roadmap" },
+  { src: "/screenshots/03-progress.png", label: "Train",  caption: "Skills & progress" },
+  { src: "/screenshots/04-nutrition.png",label: "Fuel",   caption: "Nutrition tracking" },
+  { src: "/screenshots/05-coach.png",    label: "Coach",  caption: "AI coach" },
 ];
 
 function ScreenshotCarousel() {
   const [idx, setIdx] = useState(0);
+  const [prev, setPrev] = useState<number | null>(null);
 
   useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % SCREENS.length), 3800);
+    const t = setInterval(() => {
+      setIdx((i) => {
+        setPrev(i);
+        return (i + 1) % SCREENS.length;
+      });
+    }, 4000);
     return () => clearInterval(t);
   }, []);
+
+  const go = (n: number) => {
+    setPrev(idx);
+    setIdx(n);
+  };
 
   const s = SCREENS[idx];
 
   return (
-    <div className="vf-carousel-panel">
-      <div className="vf-carousel-phone">
-        <div className="vf-carousel-phone-inner">
+    <div className="vf-car">
+      <div className="vf-car-phone">
+        <div className="vf-car-inner">
           {SCREENS.map((scr, i) => (
             <img
               key={scr.src}
               src={scr.src}
               alt={scr.label}
-              className={`vf-carousel-slide${i === idx ? " active" : ""}`}
+              className={`vf-car-slide${i === idx ? " active" : i === prev ? " out" : ""}`}
             />
           ))}
         </div>
-        <div className="vf-carousel-notch" />
-        <div className="vf-carousel-home-bar" />
+        <div className="vf-car-notch" />
+        <div className="vf-car-bar" />
       </div>
-
-      <div className="vf-carousel-meta">
-        <span className="vf-carousel-screen-name">{s.label}</span>
-        <span className="vf-carousel-screen-desc">{s.caption}</span>
+      <div className="vf-car-meta">
+        <span className="vf-car-label">{s.label}</span>
+        <span className="vf-car-caption">{s.caption}</span>
       </div>
-
-      <div className="vf-carousel-dots">
-        {SCREENS.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-label={SCREENS[i].label}
-            className={`vf-carousel-dot${i === idx ? " on" : ""}`}
-            onClick={() => setIdx(i)}
-          />
+      <div className="vf-car-dots">
+        {SCREENS.map((sc, i) => (
+          <button key={i} type="button" aria-label={sc.label}
+            className={`vf-car-dot${i === idx ? " on" : ""}`}
+            onClick={() => go(i)} />
         ))}
       </div>
     </div>
@@ -876,135 +877,118 @@ function ScreenshotCarousel() {
 function LandingPanel() {
   return (
     <aside className="vf-landing-panel">
-      {/* Top bar */}
-      <div className="vf-lp-topbar">
-        <div className="vf-lp-brand">
-          <Image src="/varfoot-mark.svg" alt="" width={24} height={24} style={{ borderRadius: 6 }} />
-          <span className="vf-lp-brand-name">VarFooty</span>
-        </div>
-        <div className="vf-lp-toplinks">
-          <a href="https://github.com/jccollinsdev/varfoot" className="vf-lp-toplink" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href="https://varfooty.vercel.app" className="vf-lp-toplink" target="_blank" rel="noopener noreferrer">Live app</a>
-        </div>
-      </div>
+      {/* ── Full-height hero grid ───────────────────────────────────────────── */}
+      <section className="vf-hero">
 
-      {/* Hero — two-column: text left, carousel right */}
-      <div className="vf-lp-hero">
-        <div className="vf-lp-hero-text">
-          <h1 className="vf-lp-headline">
-            Train with<br />
-            purpose.
-            <span className="lp-green">Make varsity.</span>
-          </h1>
-          <p className="vf-lp-sub">
-            Built for JV, freshman, and club players who need more than more drills.
-            VarFooty scores your Varsity Readiness across 5 soccer pillars, ranks your
-            gaps, and builds a personalized training roadmap — updated every session.
-          </p>
+        {/* LEFT COLUMN */}
+        <div className="vf-hero-left">
+          {/* Header */}
+          <header className="vf-header">
+            <div className="vf-header-brand">
+              <Image src="/varfoot-mark.svg" alt="" width={26} height={26} style={{ borderRadius: 7 }} />
+              <span className="vf-header-name">VarFooty</span>
+            </div>
+            <nav className="vf-header-nav">
+              <a href="https://github.com/jccollinsdev/varfoot" className="vf-nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <a href="https://varfooty.vercel.app" className="vf-nav-cta" target="_blank" rel="noopener noreferrer">Open app</a>
+            </nav>
+          </header>
 
-          {/* Feature stats */}
-          <div className="vf-lp-features">
-            <div className="vf-lp-feat">
-              <span className="vf-lp-feat-num">19</span>
-              <span className="vf-lp-feat-label">Drill assessment</span>
+          {/* Hero copy */}
+          <div className="vf-hero-copy">
+            <p className="vf-eyebrow">For JV &amp; club players</p>
+            <h1 className="vf-headline">
+              Train with<br />purpose.<br />
+              <span className="vf-headline-green">Make varsity.</span>
+            </h1>
+            <p className="vf-desc">
+              VarFooty scores your Varsity Readiness across 5 pillars, ranks your biggest gaps, and builds a roadmap that updates after every session.
+            </p>
+            <div className="vf-ctas">
+              <a href="https://varfooty.vercel.app" className="vf-btn-primary" target="_blank" rel="noopener noreferrer">
+                Try it out <span aria-hidden>→</span>
+              </a>
+              <a href="#how-it-works" className="vf-btn-ghost">How it works</a>
             </div>
-            <div className="vf-lp-feat">
-              <span className="vf-lp-feat-num">0–100</span>
-              <span className="vf-lp-feat-label">Readiness score</span>
-            </div>
-            <div className="vf-lp-feat">
-              <span className="vf-lp-feat-num">AI</span>
-              <span className="vf-lp-feat-label">Personalized coach</span>
+            <div className="vf-inline-stats">
+              <span className="vf-istat"><b>19</b> drills</span>
+              <span className="vf-istat-sep">·</span>
+              <span className="vf-istat"><b>5</b> pillars</span>
+              <span className="vf-istat-sep">·</span>
+              <span className="vf-istat"><b>AI</b> coach</span>
             </div>
           </div>
         </div>
 
-        {/* Carousel — only shown on desktop (display:none on mobile via CSS) */}
-        <ScreenshotCarousel />
-      </div>
+        {/* RIGHT COLUMN — phone carousel */}
+        <div className="vf-hero-right">
+          <div className="vf-hero-right-glow" />
+          <ScreenshotCarousel />
+        </div>
 
-      {/* Demo video */}
-      <div className="vf-lp-video-wrap">
-        <p className="vf-lp-section-label">Demo</p>
-        <div className="vf-lp-video">
-          {DEMO_VIDEO_URL ? (
-            <iframe
-              src={DEMO_VIDEO_URL}
-              title="VarFooty demo video"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          ) : (
-            <div className="vf-lp-video-placeholder">
-              <div className="vf-lp-video-play-btn">▶</div>
-              <span className="vf-lp-video-hint">Demo video — coming soon</span>
+      </section>
+
+      {/* ── Below fold ─────────────────────────────────────────────────────── */}
+      <div className="vf-below">
+
+        {/* How it works */}
+        <section id="how-it-works" className="vf-steps-section">
+          <p className="vf-section-label">How it works</p>
+          <div className="vf-steps">
+            <div className="vf-step">
+              <span className="vf-step-n">01</span>
+              <span className="vf-step-t">Complete the 19-drill baseline — mostly solo, under 30 min</span>
             </div>
-          )}
-        </div>
-        <a
-          href="https://varfooty.vercel.app"
-          className="vf-lp-try-btn"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Try it out →
-        </a>
-      </div>
+            <div className="vf-step-arrow">→</div>
+            <div className="vf-step">
+              <span className="vf-step-n">02</span>
+              <span className="vf-step-t">Get your Varsity Readiness score with weakest gaps ranked</span>
+            </div>
+            <div className="vf-step-arrow">→</div>
+            <div className="vf-step">
+              <span className="vf-step-n">03</span>
+              <span className="vf-step-t">Follow the gap-first roadmap — re-prioritized every session</span>
+            </div>
+          </div>
+        </section>
 
-      {/* How it works */}
-      <div>
-        <p className="vf-lp-section-label">How it works</p>
-        <div className="vf-lp-steps">
-          <div className="vf-lp-step">
-            <span className="vf-lp-step-num">01</span>
-            <span className="vf-lp-step-text">Complete the 19-drill baseline — mostly solo, takes under 30 min</span>
-          </div>
-          <div className="vf-lp-step">
-            <span className="vf-lp-step-num">02</span>
-            <span className="vf-lp-step-text">Get your Varsity Readiness score across 5 pillars with weakest gaps ranked</span>
-          </div>
-          <div className="vf-lp-step">
-            <span className="vf-lp-step-num">03</span>
-            <span className="vf-lp-step-text">Follow the gap-first roadmap — re-prioritized automatically after each session</span>
-          </div>
-        </div>
-      </div>
-
-      {/* PWA — Add to home screen */}
-      <div className="vf-lp-pwa-section">
-        <p className="vf-lp-section-label">Add to home screen</p>
-        <div className="vf-lp-pwa-cards">
-          <div className="vf-lp-pwa-card">
-            <span className="vf-lp-pwa-icon">🍎</span>
-            <div>
-              <span className="vf-lp-pwa-os">iOS · Safari</span>
-              <div className="vf-lp-pwa-row">
-                Tap <span className="vf-lp-pwa-key">Share</span>
-                <span className="vf-lp-pwa-arrow">›</span>
-                <span className="vf-lp-pwa-key">Add to Home Screen</span>
+        {/* Add to home screen */}
+        <section className="vf-pwa-section">
+          <p className="vf-section-label">Add to home screen</p>
+          <div className="vf-pwa-cards">
+            <div className="vf-pwa-card">
+              <span className="vf-pwa-icon">🍎</span>
+              <div>
+                <span className="vf-pwa-os">iOS · Safari</span>
+                <div className="vf-pwa-row">
+                  Tap <kbd className="vf-kbd">Share</kbd>
+                  <span className="vf-pwa-arr">›</span>
+                  <kbd className="vf-kbd">Add to Home Screen</kbd>
+                </div>
+              </div>
+            </div>
+            <div className="vf-pwa-card">
+              <span className="vf-pwa-icon">🤖</span>
+              <div>
+                <span className="vf-pwa-os">Android · Chrome</span>
+                <div className="vf-pwa-row">
+                  Tap <kbd className="vf-kbd">⋮</kbd>
+                  <span className="vf-pwa-arr">›</span>
+                  <kbd className="vf-kbd">Add to Home Screen</kbd>
+                </div>
               </div>
             </div>
           </div>
-          <div className="vf-lp-pwa-card">
-            <span className="vf-lp-pwa-icon">🤖</span>
-            <div>
-              <span className="vf-lp-pwa-os">Android · Chrome</span>
-              <div className="vf-lp-pwa-row">
-                Tap <span className="vf-lp-pwa-key">⋮</span>
-                <span className="vf-lp-pwa-arrow">›</span>
-                <span className="vf-lp-pwa-key">Add to Home Screen</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Footer */}
-      <div className="vf-lp-footer">
-        <span className="vf-lp-footer-text">LexHack &rsquo;26 · Theme: Build for Someone Real</span>
-        <span className="vf-lp-footer-text">Sansar Karki &amp; Saaransh &middot;{" "}
-          <a href="https://varfooty.vercel.app" target="_blank" rel="noopener noreferrer">varfooty.vercel.app</a>
-        </span>
+        {/* Footer */}
+        <footer className="vf-footer">
+          <span>LexHack &rsquo;26 · Build for Someone Real</span>
+          <span>Sansar Karki &amp; Saaransh ·{" "}
+            <a href="https://varfooty.vercel.app" target="_blank" rel="noopener noreferrer">varfooty.vercel.app</a>
+          </span>
+        </footer>
+
       </div>
     </aside>
   );
