@@ -62,7 +62,7 @@ export function Today({
 
   return (
     <>
-      <TopBar title="VarFoot" streak={streak} onAvatarTap={onAvatarTap} initials={initialsOf(assessment.name)} />
+      <TopBar title="VarFooty" streak={streak} onAvatarTap={onAvatarTap} initials={initialsOf(assessment.name)} />
       <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <div className="flex items-center gap-2 mb-4">
           <HandWaving size={18} weight="fill" color="var(--yellow)" />

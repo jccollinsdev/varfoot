@@ -537,24 +537,25 @@ body {
 }
 
 .vf-carousel-panel {
-  display: none;
+  display: none; /* hidden on mobile */
 }
 
 @media (min-width: 900px) {
-  /* Hide the live phone simulator — carousel replaces it */
+  /* Hide the live phone simulator on desktop */
   .vf-phone-side {
     display: none !important;
   }
 
+  /* Landing panel is now full-width on desktop */
   .vf-landing-panel {
     display: flex;
     flex-direction: column;
     flex: 1 1 0;
-    min-width: 320px;
+    min-width: 0;
     height: 100dvh;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 36px 52px 48px;
+    padding: 36px 64px 48px;
     background: linear-gradient(155deg, #09090d 0%, #070809 55%, #080b0e 100%);
     position: relative;
     scrollbar-width: none;
@@ -567,35 +568,51 @@ body {
     position: absolute;
     top: -15%;
     left: -5%;
-    width: 65%;
+    width: 55%;
     height: 65%;
-    background: radial-gradient(ellipse, rgba(57,255,115,0.045) 0%, transparent 65%);
+    background: radial-gradient(ellipse, rgba(57,255,115,0.04) 0%, transparent 65%);
     pointer-events: none;
     z-index: 0;
   }
 
   .vf-landing-panel > * { position: relative; z-index: 1; }
 
-  /* ── Screenshot carousel panel (right column) ──────────────────────────── */
+  /* Carousel shown inline inside the hero section */
   .vf-carousel-panel {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     flex: 0 0 auto;
-    background: #040506;
-    padding: 28px 40px 32px;
-    border-left: 1px solid rgba(255,255,255,0.035);
-    gap: 16px;
-    position: relative;
+    gap: 14px;
+    padding-top: 8px;
+  }
+}
+
+/* ── Hero two-column layout ─────────────────────────────────────────────── */
+
+.vf-lp-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-bottom: 40px;
+}
+
+.vf-lp-hero-text {
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .vf-lp-hero {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 52px;
+    max-width: 1100px;
   }
 
-  .vf-carousel-panel::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 75% 55% at 50% 50%, rgba(57,255,115,0.022) 0%, transparent 65%);
-    pointer-events: none;
+  .vf-lp-hero-text {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
@@ -749,7 +766,7 @@ body {
 
 .vf-lp-headline {
   font-family: var(--font-barlow), var(--font-nunito), system-ui;
-  font-size: clamp(52px, 7vw, 92px);
+  font-size: clamp(44px, 4.8vw, 82px);
   font-weight: 900;
   line-height: .9;
   letter-spacing: -.005em;
@@ -777,7 +794,7 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-bottom: 36px;
+  margin-bottom: 0;
 }
 
 .vf-lp-feat {
@@ -940,14 +957,11 @@ body {
 }
 
 .vf-landing-panel .vf-lp-topbar      { animation: lp-fade-up 400ms ease-out both; }
-.vf-landing-panel .vf-lp-headline    { animation: lp-fade-up 480ms ease-out 60ms both; }
-.vf-landing-panel .vf-lp-sub         { animation: lp-fade-up 460ms ease-out 130ms both; }
-.vf-landing-panel .vf-lp-features    { animation: lp-fade-up 460ms ease-out 200ms both; }
-.vf-landing-panel .vf-lp-video-wrap  { animation: lp-fade-up 460ms ease-out 270ms both; }
-.vf-landing-panel .vf-lp-steps       { animation: lp-fade-up 460ms ease-out 340ms both; }
-.vf-landing-panel .vf-lp-pwa-section { animation: lp-fade-up 440ms ease-out 400ms both; }
-.vf-landing-panel .vf-lp-footer      { animation: lp-fade-up 440ms ease-out 460ms both; }
-.vf-carousel-panel                   { animation: lp-fade-up 500ms ease-out 200ms both; }
+.vf-landing-panel .vf-lp-hero        { animation: lp-fade-up 480ms ease-out 70ms both; }
+.vf-landing-panel .vf-lp-video-wrap  { animation: lp-fade-up 460ms ease-out 200ms both; }
+.vf-landing-panel .vf-lp-steps       { animation: lp-fade-up 460ms ease-out 280ms both; }
+.vf-landing-panel .vf-lp-pwa-section { animation: lp-fade-up 440ms ease-out 350ms both; }
+.vf-landing-panel .vf-lp-footer      { animation: lp-fade-up 440ms ease-out 420ms both; }
 
 /* ── Try it out button ────────────────────────────────────────────────────── */
 

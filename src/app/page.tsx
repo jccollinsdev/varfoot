@@ -802,7 +802,6 @@ function App() {
   return (
     <div className="vf-app-root">
       <LandingPanel />
-      <ScreenshotCarousel />
       {/* Mobile only — hidden on desktop via CSS */}
       <div className="vf-phone-side">
         <div className="phone-shell">
@@ -889,34 +888,39 @@ function LandingPanel() {
         </div>
       </div>
 
-      {/* Hero */}
-      <div>
-        <h1 className="vf-lp-headline">
-          Train with<br />
-          purpose.
-          <span className="lp-green">Make varsity.</span>
-        </h1>
-        <p className="vf-lp-sub">
-          Built for JV, freshman, and club players who need more than more drills.
-          VarFooty scores your Varsity Readiness across 5 soccer pillars, ranks your
-          gaps, and builds a personalized training roadmap — updated every session.
-        </p>
-      </div>
+      {/* Hero — two-column: text left, carousel right */}
+      <div className="vf-lp-hero">
+        <div className="vf-lp-hero-text">
+          <h1 className="vf-lp-headline">
+            Train with<br />
+            purpose.
+            <span className="lp-green">Make varsity.</span>
+          </h1>
+          <p className="vf-lp-sub">
+            Built for JV, freshman, and club players who need more than more drills.
+            VarFooty scores your Varsity Readiness across 5 soccer pillars, ranks your
+            gaps, and builds a personalized training roadmap — updated every session.
+          </p>
 
-      {/* Feature stats */}
-      <div className="vf-lp-features">
-        <div className="vf-lp-feat">
-          <span className="vf-lp-feat-num">19</span>
-          <span className="vf-lp-feat-label">Drill assessment</span>
+          {/* Feature stats */}
+          <div className="vf-lp-features">
+            <div className="vf-lp-feat">
+              <span className="vf-lp-feat-num">19</span>
+              <span className="vf-lp-feat-label">Drill assessment</span>
+            </div>
+            <div className="vf-lp-feat">
+              <span className="vf-lp-feat-num">0–100</span>
+              <span className="vf-lp-feat-label">Readiness score</span>
+            </div>
+            <div className="vf-lp-feat">
+              <span className="vf-lp-feat-num">AI</span>
+              <span className="vf-lp-feat-label">Personalized coach</span>
+            </div>
+          </div>
         </div>
-        <div className="vf-lp-feat">
-          <span className="vf-lp-feat-num">0–100</span>
-          <span className="vf-lp-feat-label">Readiness score</span>
-        </div>
-        <div className="vf-lp-feat">
-          <span className="vf-lp-feat-num">AI</span>
-          <span className="vf-lp-feat-label">Personalized coach</span>
-        </div>
+
+        {/* Carousel — only shown on desktop (display:none on mobile via CSS) */}
+        <ScreenshotCarousel />
       </div>
 
       {/* Demo video */}
