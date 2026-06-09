@@ -2,7 +2,7 @@
 
 **Hackathon:** LexHack '26  
 **Theme:** Build for Someone Real  
-**Live URL:** [varfoot.vercel.app](https://varfoot.vercel.app)  
+**Live URL:** [varfooty.vercel.app](https://varfooty.vercel.app)  
 **Stack:** Next.js 16.2.7 · React 19 · TypeScript · Supabase · Gemini 3.1 Flash Lite · USDA FoodData Central · Vercel
 
 ---
@@ -121,7 +121,7 @@ App shell (AppState, autosave 600ms debounce)
 | Real sign-up flow | Auth defaults to sign-up. No email confirmation required. Judges go through real onboarding. |
 | Aha moment in onboarding | Score reveal on the DoneSlide — judges feel the payoff immediately after their 19 drills. |
 | Demo persona in Profile | "Load demo athlete" (Jordan Reyes, JV Midfielder) still accessible from the avatar profile sheet — available to judges who want to see a fully-populated state without doing onboarding. |
-| Live at varfoot.vercel.app | Deployed, USDA API key configured, Gemini API key configured, Supabase no-email-confirm enabled. |
+| Live at varfooty.vercel.app | Deployed, USDA API key configured, Gemini API key configured, Supabase no-email-confirm enabled. |
 | Backlog documented | `backlog.md` includes a 90-second demo video script and a Devpost personal story draft. |
 
 #### What's still needed (pre-submission)

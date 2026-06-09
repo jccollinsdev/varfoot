@@ -2,7 +2,7 @@
 
 VarFooty is a soccer-specific PWA for JV, freshman, and club players who want a clearer roadmap to varsity. Built for LexHack '26 (theme: "Build for Someone Real").
 
-**Live demo:** [varfoot.vercel.app](https://varfoot.vercel.app) — click **Explore as Jordan Reyes** on the auth screen for the full experience without an account, or sign up and go through the real 14-drill assessment.
+**Live demo:** [varfooty.vercel.app](https://varfooty.vercel.app) — click **Explore as Jordan Reyes** on the auth screen for the full experience without an account, or sign up and go through the real 14-drill assessment.
 
 ## What it does
 

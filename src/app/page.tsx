@@ -828,7 +828,7 @@ function LandingPanel() {
         </div>
         <div className="vf-lp-toplinks">
           <a href="https://github.com/jccollinsdev/varfoot" className="vf-lp-toplink" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href="https://varfoot.vercel.app" className="vf-lp-toplink" target="_blank" rel="noopener noreferrer">Live app</a>
+          <a href="https://varfooty.vercel.app" className="vf-lp-toplink" target="_blank" rel="noopener noreferrer">Live app</a>
         </div>
       </div>
 
@@ -909,7 +909,7 @@ function LandingPanel() {
       <div className="vf-lp-footer">
         <span className="vf-lp-footer-text">LexHack &rsquo;26 · Theme: Build for Someone Real</span>
         <span className="vf-lp-footer-text">Sansar Karki &amp; Saaransh &middot;{" "}
-          <a href="https://varfoot.vercel.app" target="_blank" rel="noopener noreferrer">varfoot.vercel.app</a>
+          <a href="https://varfooty.vercel.app" target="_blank" rel="noopener noreferrer">varfooty.vercel.app</a>
         </span>
       </div>
     </aside>
