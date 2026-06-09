@@ -802,6 +802,8 @@ function App() {
   return (
     <div className="vf-app-root">
       <LandingPanel />
+      <ScreenshotCarousel />
+      {/* Mobile only — hidden on desktop via CSS */}
       <div className="vf-phone-side">
         <div className="phone-shell">
           <div ref={shellRef} className="phone-column">
@@ -816,6 +818,61 @@ function App() {
 // Set to a YouTube embed URL once the demo video is recorded, e.g.:
 // "https://www.youtube.com/embed/YOUR_VIDEO_ID"
 const DEMO_VIDEO_URL = "";
+
+const SCREENS = [
+  { src: "/screenshots/01-today.png",    label: "Today",  caption: "Daily dashboard & readiness" },
+  { src: "/screenshots/02-roadmap.png",  label: "Plan",   caption: "Gap-first training roadmap" },
+  { src: "/screenshots/03-progress.png", label: "Train",  caption: "Skills radar & score history" },
+  { src: "/screenshots/04-nutrition.png",label: "Fuel",   caption: "Personalized nutrition tracking" },
+  { src: "/screenshots/05-coach.png",    label: "Coach",  caption: "AI coach grounded in your data" },
+];
+
+function ScreenshotCarousel() {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % SCREENS.length), 3800);
+    return () => clearInterval(t);
+  }, []);
+
+  const s = SCREENS[idx];
+
+  return (
+    <div className="vf-carousel-panel">
+      <div className="vf-carousel-phone">
+        <div className="vf-carousel-phone-inner">
+          {SCREENS.map((scr, i) => (
+            <img
+              key={scr.src}
+              src={scr.src}
+              alt={scr.label}
+              className={`vf-carousel-slide${i === idx ? " active" : ""}`}
+            />
+          ))}
+        </div>
+        <div className="vf-carousel-notch" />
+        <div className="vf-carousel-home-bar" />
+      </div>
+
+      <div className="vf-carousel-meta">
+        <span className="vf-carousel-screen-name">{s.label}</span>
+        <span className="vf-carousel-screen-desc">{s.caption}</span>
+      </div>
+
+      <div className="vf-carousel-dots">
+        {SCREENS.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-label={SCREENS[i].label}
+            className={`vf-carousel-dot${i === idx ? " on" : ""}`}
+            onClick={() => setIdx(i)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function LandingPanel() {
   return (
@@ -834,10 +891,6 @@ function LandingPanel() {
 
       {/* Hero */}
       <div>
-        <div className="vf-lp-badge">
-          <span className="vf-lp-badge-dot" />
-          LexHack &rsquo;26
-        </div>
         <h1 className="vf-lp-headline">
           Train with<br />
           purpose.
@@ -846,7 +899,7 @@ function LandingPanel() {
         <p className="vf-lp-sub">
           Built for JV, freshman, and club players who need more than more drills.
           VarFooty scores your Varsity Readiness across 5 soccer pillars, ranks your
-          gaps, and builds a personalized training roadmap — updated after every session.
+          gaps, and builds a personalized training roadmap — updated every session.
         </p>
       </div>
 
@@ -884,6 +937,14 @@ function LandingPanel() {
             </div>
           )}
         </div>
+        <a
+          href="https://varfooty.vercel.app"
+          className="vf-lp-try-btn"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Try it out →
+        </a>
       </div>
 
       {/* How it works */}
@@ -901,6 +962,35 @@ function LandingPanel() {
           <div className="vf-lp-step">
             <span className="vf-lp-step-num">03</span>
             <span className="vf-lp-step-text">Follow the gap-first roadmap — re-prioritized automatically after each session</span>
+          </div>
+        </div>
+      </div>
+
+      {/* PWA — Add to home screen */}
+      <div className="vf-lp-pwa-section">
+        <p className="vf-lp-section-label">Add to home screen</p>
+        <div className="vf-lp-pwa-cards">
+          <div className="vf-lp-pwa-card">
+            <span className="vf-lp-pwa-icon">🍎</span>
+            <div>
+              <span className="vf-lp-pwa-os">iOS · Safari</span>
+              <div className="vf-lp-pwa-row">
+                Tap <span className="vf-lp-pwa-key">Share</span>
+                <span className="vf-lp-pwa-arrow">›</span>
+                <span className="vf-lp-pwa-key">Add to Home Screen</span>
+              </div>
+            </div>
+          </div>
+          <div className="vf-lp-pwa-card">
+            <span className="vf-lp-pwa-icon">🤖</span>
+            <div>
+              <span className="vf-lp-pwa-os">Android · Chrome</span>
+              <div className="vf-lp-pwa-row">
+                Tap <span className="vf-lp-pwa-key">⋮</span>
+                <span className="vf-lp-pwa-arrow">›</span>
+                <span className="vf-lp-pwa-key">Add to Home Screen</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

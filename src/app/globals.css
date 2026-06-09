@@ -529,14 +529,23 @@ body {
 }
 
 .vf-phone-side {
-  display: contents;
+  display: contents; /* transparent wrapper on mobile */
 }
 
 .vf-landing-panel {
   display: none;
 }
 
+.vf-carousel-panel {
+  display: none;
+}
+
 @media (min-width: 900px) {
+  /* Hide the live phone simulator — carousel replaces it */
+  .vf-phone-side {
+    display: none !important;
+  }
+
   .vf-landing-panel {
     display: flex;
     flex-direction: column;
@@ -567,58 +576,135 @@ body {
 
   .vf-landing-panel > * { position: relative; z-index: 1; }
 
-  .vf-phone-side {
+  /* ── Screenshot carousel panel (right column) ──────────────────────────── */
+  .vf-carousel-panel {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
     background: #040506;
-    padding: 28px 44px;
+    padding: 28px 40px 32px;
     border-left: 1px solid rgba(255,255,255,0.035);
+    gap: 16px;
     position: relative;
   }
 
-  .vf-phone-side::after {
+  .vf-carousel-panel::before {
     content: '';
     position: absolute;
     inset: 0;
     background: radial-gradient(ellipse 75% 55% at 50% 50%, rgba(57,255,115,0.022) 0%, transparent 65%);
     pointer-events: none;
   }
+}
 
-  /* Override phone-shell inside landing context */
-  .vf-phone-side .phone-shell {
-    position: static !important;
-    background: transparent;
-    padding: 0;
-    min-height: 0;
-    width: auto;
-    height: auto;
-    display: block;
-  }
+/* ── Phone frame & carousel ─────────────────────────────────────────────── */
 
-  .vf-phone-side .phone-column {
-    position: relative;
-    width: 365px;
-    height: min(790px, calc(100dvh - 56px));
-    border-radius: 50px;
-    border: 1px solid rgba(255,255,255,0.075);
-    box-shadow:
-      0 0 0 5px rgba(0,0,0,0.97),
-      0 0 0 6px rgba(255,255,255,0.025),
-      0 44px 110px rgba(0,0,0,0.68),
-      0 18px 45px rgba(0,0,0,0.42),
-      inset 0 1px 0 rgba(255,255,255,0.08),
-      0 0 80px rgba(57,255,115,0.035);
-  }
+.vf-carousel-phone {
+  position: relative;
+  width: 248px;
+  aspect-ratio: 390/844;
+  border-radius: 38px;
+  overflow: hidden;
+  background: #000;
+  box-shadow:
+    0 0 0 1.5px rgba(255,255,255,0.10),
+    0 0 0 3.5px rgba(0,0,0,0.96),
+    0 0 0 4.5px rgba(255,255,255,0.04),
+    0 28px 72px rgba(0,0,0,0.70),
+    0 10px 28px rgba(0,0,0,0.44),
+    0 0 0 1px rgba(0,0,0,0.8);
+  z-index: 1;
+}
 
-  /* Reset bar padding inside the landing phone frame */
-  .vf-phone-side .phone-column .app-bar,
-  .vf-phone-side .phone-column .bottom-nav {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-  }
-  .vf-phone-side .phone-column .app-bar { padding-top: 6px !important; }
+.vf-carousel-phone-inner {
+  position: absolute;
+  inset: 0;
+}
+
+.vf-carousel-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.vf-carousel-slide.active { opacity: 1; }
+
+.vf-carousel-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 76px;
+  height: 20px;
+  background: #000;
+  border-radius: 0 0 14px 14px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.vf-carousel-home-bar {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 3px;
+  background: rgba(255,255,255,0.38);
+  border-radius: 2px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.vf-carousel-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  z-index: 1;
+}
+
+.vf-carousel-screen-name {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -.01em;
+}
+
+.vf-carousel-screen-desc {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.vf-carousel-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  z-index: 1;
+}
+
+.vf-carousel-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.18);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
+  flex-shrink: 0;
+}
+.vf-carousel-dot.on {
+  background: var(--green);
+  transform: scale(1.4);
 }
 
 /* ── Landing panel sections ──────────────────────────────────────────────── */
@@ -660,37 +746,6 @@ body {
   transition: color .15s;
 }
 .vf-lp-toplink:hover { color: var(--text-2); }
-
-.vf-lp-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 11px;
-  border-radius: 100px;
-  border: 1px solid rgba(57,255,115,0.18);
-  background: rgba(57,255,115,0.055);
-  color: var(--green);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  margin-bottom: 20px;
-  width: fit-content;
-}
-
-.vf-lp-badge-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: lp-badge-pulse 2.2s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
-@keyframes lp-badge-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.65); }
-}
 
 .vf-lp-headline {
   font-family: var(--font-barlow), var(--font-nunito), system-ui;
@@ -884,11 +939,102 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.vf-landing-panel .vf-lp-topbar  { animation: lp-fade-up 400ms ease-out both; }
-.vf-landing-panel .vf-lp-badge   { animation: lp-fade-up 450ms ease-out 80ms both; }
-.vf-landing-panel .vf-lp-headline{ animation: lp-fade-up 480ms ease-out 140ms both; }
-.vf-landing-panel .vf-lp-sub     { animation: lp-fade-up 460ms ease-out 200ms both; }
-.vf-landing-panel .vf-lp-features{ animation: lp-fade-up 460ms ease-out 260ms both; }
-.vf-landing-panel .vf-lp-video-wrap { animation: lp-fade-up 460ms ease-out 320ms both; }
-.vf-landing-panel .vf-lp-steps   { animation: lp-fade-up 460ms ease-out 380ms both; }
-.vf-landing-panel .vf-lp-footer  { animation: lp-fade-up 440ms ease-out 440ms both; }
+.vf-landing-panel .vf-lp-topbar      { animation: lp-fade-up 400ms ease-out both; }
+.vf-landing-panel .vf-lp-headline    { animation: lp-fade-up 480ms ease-out 60ms both; }
+.vf-landing-panel .vf-lp-sub         { animation: lp-fade-up 460ms ease-out 130ms both; }
+.vf-landing-panel .vf-lp-features    { animation: lp-fade-up 460ms ease-out 200ms both; }
+.vf-landing-panel .vf-lp-video-wrap  { animation: lp-fade-up 460ms ease-out 270ms both; }
+.vf-landing-panel .vf-lp-steps       { animation: lp-fade-up 460ms ease-out 340ms both; }
+.vf-landing-panel .vf-lp-pwa-section { animation: lp-fade-up 440ms ease-out 400ms both; }
+.vf-landing-panel .vf-lp-footer      { animation: lp-fade-up 440ms ease-out 460ms both; }
+.vf-carousel-panel                   { animation: lp-fade-up 500ms ease-out 200ms both; }
+
+/* ── Try it out button ────────────────────────────────────────────────────── */
+
+.vf-lp-try-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 11px 20px;
+  background: var(--green);
+  color: var(--green-ink);
+  font-size: 12.5px;
+  font-weight: 900;
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  letter-spacing: .01em;
+  transition: opacity .15s, transform .1s;
+  width: fit-content;
+}
+.vf-lp-try-btn:hover  { opacity: 0.88; }
+.vf-lp-try-btn:active { transform: scale(0.97); }
+
+/* ── PWA install section ─────────────────────────────────────────────────── */
+
+.vf-lp-pwa-section {
+  margin-bottom: 32px;
+}
+
+.vf-lp-pwa-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-lp-pwa-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.018);
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 10px;
+  transition: border-color .2s;
+}
+.vf-lp-pwa-card:hover { border-color: rgba(57,255,115,0.14); }
+
+.vf-lp-pwa-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.vf-lp-pwa-os {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 5px;
+}
+
+.vf-lp-pwa-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  line-height: 1;
+}
+
+.vf-lp-pwa-key {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.vf-lp-pwa-arrow {
+  color: var(--text-3);
+  font-size: 13px;
+}
