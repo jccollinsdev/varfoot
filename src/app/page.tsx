@@ -6,7 +6,6 @@
 // this shell supplies the outer phone-shell/phone-column frame, the bottom nav, and
 // the profile sheet overlay — see the per-screen files for that convention's rationale.
 
-import Image from "next/image";
 import {
   useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore,
 } from "react";
@@ -243,11 +242,6 @@ function App() {
   const [stack, setStack] = useState<Screen[]>(() => [{ id: state.activeTab }]);
   const [rootTab, setRootTab] = useState<RootTab>(() => state.activeTab);
 
-  // varfoot.vercel.app = bare app; varfooty.vercel.app = landing + phone sim
-  const [isAppOnly, setIsAppOnly] = useState(false);
-  useEffect(() => {
-    if (window.location.hostname === "varfoot.vercel.app") setIsAppOnly(true);
-  }, []);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -806,133 +800,13 @@ function App() {
   }
 
   return (
-    <div className="vf-app-root">
-      {!isAppOnly && <LandingPanel />}
-      {/* varfooty.vercel.app: right panel with live phone; varfoot.vercel.app: fills viewport */}
-      <div className="vf-phone-side">
-        <div className="phone-shell">
-          <div ref={shellRef} className="phone-column">
-            {renderPhoneContent()}
-          </div>
-        </div>
+    <div className="phone-shell">
+      <div ref={shellRef} className="phone-column">
+        {renderPhoneContent()}
       </div>
     </div>
   );
 }
 
-
-function LandingPanel() {
-  return (
-    <aside className="vf-landing-panel">
-      {/* ── Full-height hero grid ───────────────────────────────────────────── */}
-      <section className="vf-hero">
-
-        {/* LEFT COLUMN */}
-        <div className="vf-hero-left">
-          {/* Header */}
-          <header className="vf-header">
-            <div className="vf-header-brand">
-              <Image src="/varfoot-mark.svg" alt="" width={26} height={26} style={{ borderRadius: 7 }} />
-              <span className="vf-header-name">VarFooty</span>
-            </div>
-            <nav className="vf-header-nav">
-              <a href="https://github.com/jccollinsdev/varfoot" className="vf-nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
-              <a href="https://varfoot.vercel.app" className="vf-nav-cta" target="_blank" rel="noopener noreferrer">Open app ↗</a>
-            </nav>
-          </header>
-
-          {/* Hero copy */}
-          <div className="vf-hero-copy">
-            <p className="vf-eyebrow">For JV &amp; club players</p>
-            <h1 className="vf-headline">
-              Train with<br />purpose.<br />
-              <span className="vf-headline-green">Make varsity.</span>
-            </h1>
-            <p className="vf-desc">
-              VarFooty scores your Varsity Readiness across 5 pillars, ranks your biggest gaps, and builds a roadmap that updates after every session.
-            </p>
-            <div className="vf-ctas">
-              <a href="https://varfoot.vercel.app" className="vf-btn-primary" target="_blank" rel="noopener noreferrer">
-                Try it out <span aria-hidden>→</span>
-              </a>
-              <a href="#how-it-works" className="vf-btn-ghost">How it works</a>
-            </div>
-            <div className="vf-inline-stats">
-              <span className="vf-istat"><b>19</b> drills</span>
-              <span className="vf-istat-sep">·</span>
-              <span className="vf-istat"><b>5</b> pillars</span>
-              <span className="vf-istat-sep">·</span>
-              <span className="vf-istat"><b>AI</b> coach</span>
-            </div>
-          </div>
-        </div>
-
-      </section>
-
-      {/* ── Below fold ─────────────────────────────────────────────────────── */}
-      <div className="vf-below">
-
-        {/* How it works */}
-        <section id="how-it-works" className="vf-steps-section">
-          <p className="vf-section-label">How it works</p>
-          <div className="vf-steps">
-            <div className="vf-step">
-              <span className="vf-step-n">01</span>
-              <span className="vf-step-t">Complete the 19-drill baseline — mostly solo, under 30 min</span>
-            </div>
-            <div className="vf-step-arrow">→</div>
-            <div className="vf-step">
-              <span className="vf-step-n">02</span>
-              <span className="vf-step-t">Get your Varsity Readiness score with weakest gaps ranked</span>
-            </div>
-            <div className="vf-step-arrow">→</div>
-            <div className="vf-step">
-              <span className="vf-step-n">03</span>
-              <span className="vf-step-t">Follow the gap-first roadmap — re-prioritized every session</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Add to home screen */}
-        <section className="vf-pwa-section">
-          <p className="vf-section-label">Add to home screen</p>
-          <div className="vf-pwa-cards">
-            <div className="vf-pwa-card">
-              <span className="vf-pwa-icon">🍎</span>
-              <div>
-                <span className="vf-pwa-os">iOS · Safari</span>
-                <div className="vf-pwa-row">
-                  Tap <kbd className="vf-kbd">Share</kbd>
-                  <span className="vf-pwa-arr">›</span>
-                  <kbd className="vf-kbd">Add to Home Screen</kbd>
-                </div>
-              </div>
-            </div>
-            <div className="vf-pwa-card">
-              <span className="vf-pwa-icon">🤖</span>
-              <div>
-                <span className="vf-pwa-os">Android · Chrome</span>
-                <div className="vf-pwa-row">
-                  Tap <kbd className="vf-kbd">⋮</kbd>
-                  <span className="vf-pwa-arr">›</span>
-                  <kbd className="vf-kbd">Add to Home Screen</kbd>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="vf-footer">
-          <span>LexHack &rsquo;26 · Build for Someone Real</span>
-          <span>Sansar Karki &amp; Saaransh ·{" "}
-            <a href="https://varfooty.vercel.app" target="_blank" rel="noopener noreferrer">varfooty.vercel.app</a>
-          </span>
-        </footer>
-
-      </div>
-    </aside>
-  );
-}
 
 export default function Page() { return <App />; }
