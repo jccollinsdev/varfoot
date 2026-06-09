@@ -95,7 +95,7 @@ export function Roadmap({
     return (
       <>
         <BackBar title="Your Roadmap" onBack={onBack} />
-        <div className="content-area content-scroll" style={{ padding: "24px 18px" }}>
+        <div className="content-area content-scroll" style={{ padding: "24px 16px" }}>
           <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, padding: "32px 20px" }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--green-ghost)", border: "1px solid var(--green-line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Sparkle size={28} weight="fill" color="var(--green)" />
@@ -120,7 +120,7 @@ export function Roadmap({
   return (
     <>
       <BackBar title="Your Roadmap" sub={`${completed}/${roadmap.nodes.length} sessions complete`} onBack={onBack} />
-      <div className="content-area content-scroll" style={{ padding: "20px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <FlatCard style={{ marginBottom: 16 }}>
           <div className="flex items-center gap-2 mb-1">
             <CalendarBlank size={15} weight="bold" color="var(--green)" />
@@ -171,7 +171,7 @@ export function RoadmapSession({
   return (
     <>
       <BackBar title={node.label} sub={formatNodeDate(node.date) ?? undefined} onBack={onBack} />
-      <div className="content-area content-scroll" style={{ padding: "20px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <FlatCard style={{ marginBottom: 18 }}>
           <Eyebrow tone="green">{node.focusCategory} focus</Eyebrow>
           <p style={{ fontSize: 13, color: "var(--text-2)", marginTop: 6 }}>

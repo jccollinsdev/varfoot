@@ -167,7 +167,7 @@ App shell (AppState, autosave 600ms debounce)
 
 | Fix | File(s) |
 |---|---|
-| Harris-Benedict personalized nutrition targets | `varfoot.ts`, `page.tsx` |
+| Mifflin-St Jeor personalized nutrition targets | `varfoot.ts`, `page.tsx` |
 | Plan readiness excluded from strongest/weakest | `readiness.ts` |
 | Focus-category node labels ("Passing" not "Day 1") | `roadmap.ts` |
 | 4-axis radar (Plan axis removed) | `Progress.tsx` |

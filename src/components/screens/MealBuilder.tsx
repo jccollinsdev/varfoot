@@ -126,7 +126,7 @@ export function MealBuilder({
   return (
     <>
       <BackBar title="Log a meal" sub="Search real foods, build your plate" onBack={onBack} />
-      <div className="content-area content-scroll" style={{ padding: "20px 18px 8px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 8px" }}>
         <form
           onSubmit={(e) => { e.preventDefault(); void runSearch(); }}
           style={{ display: "flex", gap: 8, marginBottom: 14 }}

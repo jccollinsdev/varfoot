@@ -2,12 +2,12 @@
 
 VarFoot is a soccer-specific PWA for JV, freshman, and club players who want a clearer roadmap to varsity. Built for LexHack '26 (theme: "Build for Someone Real").
 
-**Live demo:** [varfoot.vercel.app](https://varfoot.vercel.app) — click **Try demo** on the auth screen for the full experience without an account.
+**Live demo:** [varfoot.vercel.app](https://varfoot.vercel.app) — click **Explore as Jordan Reyes** on the auth screen for the full experience without an account, or sign up and go through the real 14-drill assessment.
 
 ## What it does
 
-- **Onboarding assessment** — 19-step skill + physical baseline across all five soccer competency pillars
-- **Varsity Readiness score** — weighted composite (70/100 = JV, 90+ = varsity) with per-category breakdown and radar chart
+- **Onboarding assessment** — 19-drill skill + physical baseline across all five soccer competency pillars (solo-doable drills only; partner drills available in the training library)
+- **Varsity Readiness score** — weighted composite (40 = freshman, 70 = JV, 100 = varsity-ready) with per-category breakdown and radar chart
 - **Gap Analysis** — every drill ranked weakest-first, grouped by category, with varsity benchmarks
 - **AI-generated roadmap** — deterministic weekly plan from your gaps + tryout date, with a Gemini-written summary
 - **Session tracking** — drill-by-drill logging with progress counters; assessment baseline ≠ session log
@@ -37,7 +37,6 @@ npm run dev
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-side only) |
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `USDA_API_KEY` | FoodData Central key (falls back to public DEMO_KEY) |
 
@@ -48,6 +47,7 @@ The app runs fully in demo/local mode without any keys — auth, Supabase, and G
 ```bash
 npm run typecheck
 npm run lint
+npm run test
 npm run build
 ```
 

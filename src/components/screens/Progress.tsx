@@ -15,7 +15,7 @@ import { gapSummary, type GapItem, type ReadinessSummary } from "@/lib/readiness
 import { CATEGORY_BUCKET } from "@/lib/roadmap";
 import { hasReachedVarsity } from "@/lib/scoring";
 import { cn } from "@/lib/utils";
-import type { AssessmentState, DrillResult } from "@/lib/varfoot";
+import type { AssessmentState, DrillResult, ProgressSnapshot } from "@/lib/varfoot";
 
 type FilterKey = "all" | "technical" | "physical" | "conditioning" | "recovery";
 
@@ -29,6 +29,90 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 function bucketOf(category: string): FilterKey {
   return CATEGORY_BUCKET[category as DrillCategory] ?? "technical";
+}
+
+/** SVG sparkline showing the player's overall readiness score over completed sessions.
+ * Renders a JV/freshman reference line when those thresholds fall within the visible range.
+ * Returns null when fewer than 2 snapshots exist (nothing to trend). */
+function Sparkline({ history }: { history: ProgressSnapshot[] }) {
+  const pts = history.slice(-12); // cap at 12 most-recent sessions for readability
+  if (pts.length < 2) return null;
+
+  const W = 260, H = 72;
+  const PL = 24, PR = 8, PT = 8, PB = 20;
+  const plotW = W - PL - PR;
+  const plotH = H - PT - PB;
+
+  const scores = pts.map((s) => s.overall);
+  const yMin = Math.max(0, Math.min(...scores) - 8);
+  const yMax = Math.min(100, Math.max(...scores) + 8);
+  const yRange = yMax - yMin || 1;
+
+  const toX = (i: number) => PL + (i / (pts.length - 1)) * plotW;
+  const toY = (s: number) => PT + plotH - ((s - yMin) / yRange) * plotH;
+
+  const polyPts = pts.map((p, i) => `${toX(i)},${toY(p.overall)}`).join(" ");
+  const areaPath = [
+    `M ${toX(0)},${toY(pts[0].overall)}`,
+    ...pts.map((p, i) => `L ${toX(i)},${toY(p.overall)}`),
+    `L ${toX(pts.length - 1)},${PT + plotH}`,
+    `L ${PL},${PT + plotH}`,
+    "Z",
+  ].join(" ");
+
+  const first = pts[0].overall;
+  const last = pts[pts.length - 1].overall;
+  const delta = Math.round(last - first);
+  const trendLabel = delta > 0 ? `+${delta} pts` : delta < 0 ? `${delta} pts` : "Steady";
+  const trendColor = delta > 0 ? "var(--green)" : delta < 0 ? "var(--red)" : "var(--text-3)";
+
+  // Reference lines for benchmarks that fall inside the visible y-range
+  const refs: Array<{ score: number; label: string }> = [];
+  if (70 >= yMin && 70 <= yMax) refs.push({ score: 70, label: "JV" });
+  if (40 >= yMin && 40 <= yMax) refs.push({ score: 40, label: "Fr" });
+
+  return (
+    <FlatCard style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <Eyebrow>Score history</Eyebrow>
+        <span style={{ fontSize: 11, fontWeight: 900, color: trendColor }}>
+          {trendLabel} · {pts.length} session{pts.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        style={{ display: "block", overflow: "visible" }}
+        aria-label={`Readiness score history: started at ${Math.round(first)}, now at ${Math.round(last)}`}
+      >
+        {/* Benchmark reference lines */}
+        {refs.map((r) => {
+          const ry = toY(r.score);
+          return (
+            <g key={r.score}>
+              <line x1={PL} y1={ry} x2={W - PR} y2={ry} stroke="var(--border)" strokeWidth={1} strokeDasharray="3 3" />
+              <text x={PL - 3} y={ry + 3.5} fontSize={8} fill="var(--text-3)" textAnchor="end" fontFamily="var(--font-plex-mono)">{r.label}</text>
+            </g>
+          );
+        })}
+        {/* Area fill */}
+        <path d={areaPath} fill="var(--green)" fillOpacity={0.07} />
+        {/* Line */}
+        <polyline points={polyPts} fill="none" stroke="var(--green)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {/* Dots */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={toX(i)} cy={toY(p.overall)} r={2.5} fill="var(--green)" />
+        ))}
+        {/* Score labels: first (muted) and last (green, bold) */}
+        <text x={toX(0)} y={H - 5} fontSize={8} fill="var(--text-3)" textAnchor="middle" fontFamily="var(--font-plex-mono)">
+          {Math.round(first)}
+        </text>
+        <text x={toX(pts.length - 1)} y={H - 5} fontSize={8} fill="var(--green)" fontWeight="bold" textAnchor="middle" fontFamily="var(--font-plex-mono)">
+          {Math.round(last)}
+        </text>
+      </svg>
+    </FlatCard>
+  );
 }
 
 function GapRow({ gap, onOpen }: { gap: GapItem; onOpen: (drillId: string) => void }) {
@@ -66,6 +150,7 @@ export function Progress({
   assessment,
   drillResults,
   summary,
+  history,
   streak,
   onAvatarTap,
   onOpenDrill,
@@ -73,6 +158,7 @@ export function Progress({
   assessment: AssessmentState;
   drillResults: Record<string, DrillResult>;
   summary: ReadinessSummary;
+  history: ProgressSnapshot[];
   streak: number;
   onAvatarTap: () => void;
   onOpenDrill: (drillId: string) => void;
@@ -96,9 +182,11 @@ export function Progress({
   return (
     <>
       <TopBar title="Progress" streak={streak} onAvatarTap={onAvatarTap} initials={initialsOf(assessment.name)} />
-      <div className="content-area content-scroll" style={{ padding: "18px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
+        <Sparkline history={history} />
+
         <FlatCard style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 16 }}>
-          <Eyebrow>Five-category radar</Eyebrow>
+          <Eyebrow>Skills radar</Eyebrow>
           <div style={{ marginTop: 8 }}>
             <Radar you={you} tgt={target} axes={axes} size={190} />
           </div>

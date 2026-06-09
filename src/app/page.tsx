@@ -33,9 +33,9 @@ import { completeRoadmapNode, generateRoadmap } from "@/lib/roadmap";
 import { createSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase";
 import { loadRemoteState, upsertRemoteProfile, upsertRemoteState } from "@/lib/varfoot-sync";
 import {
-  clearGuestMode, clearState, computeNutritionTargets, createBlankState, defaultNutritionTargets, isLoggedForSession, loadGuestMode, loadState, localDateOf, localTodayIso, makeId, saveGuestMode, saveState,
+  clearGuestMode, clearState, computeNutritionTargets, createBlankState, isLoggedForSession, loadGuestMode, loadState, localDateOf, localTodayIso, makeId, saveGuestMode, saveState,
   type AppState, type AssessmentState, type CoachMessage, type DrillResult,
-  type Meal, type RoadmapState,
+  type Meal, type ProgressSnapshot, type RoadmapState,
 } from "@/lib/varfoot";
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
@@ -154,6 +154,17 @@ function createDemoState(): AppState {
     },
   ];
 
+  // Realistic improvement arc for Jordan Reyes over the past 3 weeks: 62 → 70.
+  // Gives the sparkline on the Progress screen a meaningful story on first load.
+  const dateAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+  const demoHistory: ProgressSnapshot[] = [
+    { date: dateAgo(21), overall: 62, categories: { technical: 68, physicalRecovery: 55, speedStamina: 52, nutrition: 50, planReadiness: 70 } },
+    { date: dateAgo(14), overall: 65, categories: { technical: 71, physicalRecovery: 58, speedStamina: 55, nutrition: 53, planReadiness: 70 } },
+    { date: dateAgo(7),  overall: 67, categories: { technical: 73, physicalRecovery: 61, speedStamina: 58, nutrition: 56, planReadiness: 70 } },
+    { date: dateAgo(3),  overall: 69, categories: { technical: 75, physicalRecovery: 63, speedStamina: 61, nutrition: 59, planReadiness: 70 } },
+    { date: dateAgo(1),  overall: 70, categories: { technical: 76, physicalRecovery: 64, speedStamina: 63, nutrition: 62, planReadiness: 70 } },
+  ];
+
   return {
     ...createBlankState(),
     onboardingComplete: true,
@@ -161,6 +172,7 @@ function createDemoState(): AppState {
     drillResults,
     roadmap,
     nutrition: { ...computeNutritionTargets(assessment), meals },
+    history: demoHistory,
   };
 }
 
@@ -216,6 +228,7 @@ function App() {
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
   const [syncState, setSyncState] = useState(localMode ? "local" : "signed-out");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authNote, setAuthNote] = useState<string | null>(null);
   const [guestMode, setGuestMode] = useState(() => localMode || loadGuestMode());
   const [demoMode, setDemoMode] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -224,7 +237,7 @@ function App() {
   const [coachError, setCoachError] = useState<string | null>(null);
   const [lastCoachPrompt, setLastCoachPrompt] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
-  const [sessionCompleteModal, setSessionCompleteModal] = useState<{ streak: number; score: number; level: string } | null>(null);
+  const [sessionCompleteModal, setSessionCompleteModal] = useState<{ streak: number; score: number; delta: number; level: string } | null>(null);
 
   const [stack, setStack] = useState<Screen[]>(() => [{ id: state.activeTab }]);
   const [rootTab, setRootTab] = useState<RootTab>(() => state.activeTab);
@@ -420,20 +433,25 @@ function App() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
+      let buffer = "";
       let errorMsg: string | null = null;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const raw = decoder.decode(value, { stream: true });
-        for (const line of raw.split("\n\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = line.slice(6).trim();
+        buffer += decoder.decode(value, { stream: true });
+        // SSE frames are delimited by double newlines. Keep the incomplete
+        // trailing frame in the buffer so partial chunks are never dropped.
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          if (!frame.startsWith("data: ")) continue;
+          const payload = frame.slice(6).trim();
           if (payload === "[DONE]") break;
           try {
             const parsed = JSON.parse(payload) as { chunk?: string; error?: string };
             if (parsed.error) { errorMsg = parsed.error; break; }
             if (parsed.chunk) { accumulated += parsed.chunk; setStreamingText(accumulated); }
-          } catch { /* ignore partial lines */ }
+          } catch { /* ignore malformed frames */ }
         }
         if (errorMsg) break;
       }
@@ -484,16 +502,31 @@ function App() {
         newRoadmap = generateRoadmap({ assessment: state.assessment, drillResults: newDrillResults, existing: newRoadmap });
       }
     }
-    setState((prev) => ({ ...prev, drillResults: newDrillResults, roadmap: newRoadmap }));
     if (sessionCompleted) {
+      const scoreBefore = Math.round(summary.overall);
       const newSummary = computeReadiness(state.assessment, newDrillResults, newRoadmap);
+      const scoreAfter = Math.round(newSummary.overall);
+      const newSnapshot: ProgressSnapshot = {
+        date: localTodayIso(),
+        overall: scoreAfter,
+        categories: Object.fromEntries(newSummary.categories.map((c) => [c.key, Math.round(c.score)])),
+      };
+      setState((prev) => ({
+        ...prev,
+        drillResults: newDrillResults,
+        roadmap: newRoadmap,
+        history: [...(prev.history ?? []), newSnapshot],
+      }));
       setSessionCompleteModal({
         streak: computeStreak(newRoadmap),
-        score: Math.round(newSummary.overall),
+        score: scoreAfter,
+        delta: scoreAfter - scoreBefore,
         level: newSummary.level,
       });
       back();
       back(); // DrillDetail → RoadmapSession → Today
+    } else {
+      setState((prev) => ({ ...prev, drillResults: newDrillResults, roadmap: newRoadmap }));
     }
   }
 
@@ -523,7 +556,7 @@ function App() {
     if (result.error) { setAuthError(result.error.message); setAuthLoading(false); return; }
     setGuestMode(false);
     clearGuestMode();
-    if (mode === "sign-up" && !result.data.session) { setAuthError("Account created! Check your email to confirm, then sign in."); setAuthLoading(false); }
+    if (mode === "sign-up" && !result.data.session) { setAuthNote("Account created! Check your email to confirm, then sign in."); setAuthLoading(false); }
   }
 
   async function handleSignOut() {
@@ -544,19 +577,6 @@ function App() {
     setGuestMode(true);
     saveGuestMode(true);
     setDemoMode(true);
-    setShowProfile(false);
-    setPlanSummary(null);
-    setRootTab("today");
-    setStack([{ id: "today" }]);
-  }
-
-  function startLocalAssessment() {
-    const next = createBlankState();
-    setState(next);
-    saveState(next);
-    setGuestMode(true);
-    saveGuestMode(true);
-    setDemoMode(false);
     setShowProfile(false);
     setPlanSummary(null);
     setRootTab("today");
@@ -584,7 +604,7 @@ function App() {
   if (!hydrated) return <LoadingScreen message="Loading VarFoot…" />;
   if (!localMode && !demoMode && !guestMode && (authLoading || bootstrapLoading)) return <LoadingScreen message="Loading your profile…" />;
   if (!localMode && !demoMode && !guestMode && !session) {
-    return <Auth loading={authLoading} error={authError} onSubmit={handleAuthSubmit} />;
+    return <Auth loading={authLoading} error={authError} note={authNote} onSubmit={handleAuthSubmit} onLoadDemo={loadDemo} />;
   }
   if (!state.onboardingComplete) {
     return (
@@ -635,6 +655,7 @@ function App() {
             assessment={state.assessment}
             drillResults={state.drillResults}
             summary={summary}
+            history={state.history}
             streak={streak}
             onAvatarTap={avatarTap}
             onOpenDrill={(drillId) => go({ id: "drillDetail", drillId })}
@@ -752,7 +773,7 @@ function App() {
         )}
         {sessionCompleteModal && (
           <div
-            style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(10,10,11,.96)", padding: "0 28px", textAlign: "center" }}
+            style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(10,10,11,.96)", padding: "0 24px", textAlign: "center" }}
             onClick={() => setSessionCompleteModal(null)}
           >
             <div style={{ fontSize: 48, marginBottom: 8 }}>⚡</div>
@@ -761,6 +782,11 @@ function App() {
               {sessionCompleteModal.score}
               <span style={{ fontSize: 16, color: "var(--text-3)", fontWeight: 700 }}>/100</span>
             </h2>
+            {sessionCompleteModal.delta !== 0 && (
+              <p style={{ fontSize: 14, fontWeight: 900, color: sessionCompleteModal.delta > 0 ? "var(--green)" : "var(--red)", marginBottom: 4 }}>
+                {sessionCompleteModal.delta > 0 ? "+" : ""}{sessionCompleteModal.delta} pts
+              </p>
+            )}
             <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-2)", marginBottom: 16 }}>
               {sessionCompleteModal.level.toUpperCase()} · {sessionCompleteModal.streak} day streak 🔥
             </p>

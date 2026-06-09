@@ -16,11 +16,15 @@ type AuthForm = z.infer<typeof authSchema>;
 export function Auth({
   loading,
   error,
+  note,
   onSubmit,
+  onLoadDemo,
 }: {
   loading: boolean;
   error: string | null;
+  note?: string | null;
   onSubmit: (mode: "sign-in" | "sign-up", email: string, password: string) => Promise<void>;
+  onLoadDemo?: () => void;
 }) {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-up");
   const { register, handleSubmit, formState: { errors } } = useForm<AuthForm>({ resolver: zodResolver(authSchema) });
@@ -30,12 +34,17 @@ export function Auth({
     <div style={{ background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100dvh", padding: "0 24px" }}>
       <Image src="/varfoot-mark.svg" alt="VarFoot" width={52} height={52} style={{ marginBottom: 8 }} />
       <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>VarFoot</h1>
-      <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 28, fontWeight: 600 }}>Train with purpose. Make varsity.</p>
+      <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 24, fontWeight: 600 }}>Train with purpose. Make varsity.</p>
 
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
         {error && (
           <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(255,107,94,.1)", border: "1px solid rgba(255,107,94,.25)", color: "var(--red)", fontSize: 13, fontWeight: 600 }}>
             {error}
+          </div>
+        )}
+        {note && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--green-ghost)", border: "1px solid var(--green-line)", color: "var(--green)", fontSize: 13, fontWeight: 600 }}>
+            {note}
           </div>
         )}
 
@@ -56,6 +65,19 @@ export function Auth({
         >
           {mode === "sign-up" ? "Already have an account? Sign in" : "No account? Create one free"}
         </button>
+
+        {onLoadDemo && (
+          <>
+            <div style={{ height: 1, background: "var(--border-soft)", margin: "4px 0" }} />
+            <button
+              type="button"
+              onClick={onLoadDemo}
+              style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}
+            >
+              No time to sign up? Explore as Jordan Reyes →
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

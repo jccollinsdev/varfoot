@@ -47,7 +47,7 @@ export function Readiness({
   return (
     <>
       <BackBar title="Varsity Readiness" sub="Your composite score" onBack={onContinue} />
-      <div className="content-area content-scroll" style={{ padding: "20px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12, marginBottom: 18 }}>
           <Ring size={150} pct={summary.overall / 100} sw={11} color={tone}>
             <div>

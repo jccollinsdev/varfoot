@@ -14,7 +14,6 @@ import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   ShieldWarning,
   SkipForward,
   Sparkle,
@@ -84,7 +83,7 @@ const STEPS: Step[] = [
   { kind: "profile", id: "goal", section: "profile" },
   ...PHYSICAL_DRILLS.map((drill): Step => ({ kind: "drill", drill, section: "physical" })),
   ...RECOVERY_DRILLS.map((drill): Step => ({ kind: "drill", drill, section: "recovery" })),
-  ...onboardingTechnicalDrills.map((drill): Step => ({ kind: "drill", drill, section: "technical" })),
+  ...onboardingTechnicalDrills.filter((d) => !d.requiresPartner).map((drill): Step => ({ kind: "drill", drill, section: "technical" })),
   { kind: "done" },
 ];
 
@@ -232,7 +231,7 @@ export function Onboarding({
         </div>
       </div>
 
-      <div className="content-area content-scroll" style={{ padding: "20px 18px 8px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 8px" }}>
         {step.kind === "profile" && step.id === "identity" && (
           <IdentitySlide assessment={assessment} onChange={updateAssessment} />
         )}

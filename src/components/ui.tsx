@@ -308,12 +308,15 @@ export function DrillCapture({
   if (drill.inputType === "timed_count") {
     const current = value ?? 0;
     const label = drill.unit.split(" / ")[0];
+    // Derive the counter label from the drill's unit (e.g. "passes", "reps", "clean jumps")
+    // rather than hardcoding — so any timed_count drill reads correctly.
+    const countNoun = label.length > 0 ? `${label} completed in the window` : "Completed in the window";
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
         <Timer key={`${drill.id}-timer`} targetSeconds={drill.timerSeconds ?? 60} />
         <div style={{ width: "100%", maxWidth: 280 }}>
-          <p style={{ fontSize: 11, fontWeight: 800, color: "var(--text-3)", textAlign: "center", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".08em" }}>
-            Clean passes completed in the window
+          <p style={{ fontSize: 11, fontWeight: 800, color: "var(--text-3)", textAlign: "center", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>
+            {countNoun}
           </p>
           <Stepper
             display={`${current} ${label}`}

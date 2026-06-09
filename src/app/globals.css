@@ -219,21 +219,21 @@ body {
   background: var(--surface);
   border: 1px solid var(--border-soft);
   border-radius: var(--r-md);
-  padding: 14px;
+  padding: 16px;
 }
 
 .vf-card-flat {
   background: var(--surface-2);
   border: 1px solid var(--border-soft);
   border-radius: var(--r-md);
-  padding: 14px;
+  padding: 16px;
 }
 
 .vf-card-hi {
   background: linear-gradient(180deg, rgba(57,255,115,.06), rgba(57,255,115,0) 60%), var(--surface);
   border: 1px solid var(--green-line);
   border-radius: var(--r-md);
-  padding: 14px;
+  padding: 16px;
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
@@ -270,7 +270,7 @@ body {
 /* ── Chips & segment ──────────────────────────────────────────────────────── */
 
 .vf-chip {
-  padding: 7px 12px; border-radius: var(--r-xs);
+  padding: 8px 12px; border-radius: var(--r-xs);
   background: var(--surface-2); border: 1px solid var(--border-soft);
   font-size: 12px; font-weight: 800; color: var(--text-2);
   white-space: nowrap; flex-shrink: 0;
@@ -287,7 +287,7 @@ body {
   flex: 1; border: none; background: transparent;
   color: var(--text-2); font-size: 12px; font-weight: 800;
   font-family: var(--font-nunito), sans-serif;
-  padding: 7px 4px; border-radius: var(--r-xs); cursor: pointer;
+  padding: 8px 4px; border-radius: var(--r-xs); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -368,14 +368,14 @@ body {
 /* ── Chat bubbles ─────────────────────────────────────────────────────────── */
 
 .vf-bubble-in {
-  max-width: 80%; padding: 11px 13px;
+  max-width: 80%; padding: 12px 14px;
   border-radius: var(--r-md); border-bottom-left-radius: 3px;
   background: var(--surface); border: 1px solid var(--border-soft);
   font-size: 13px; font-weight: 600; line-height: 1.4;
   color: var(--text); align-self: flex-start;
 }
 .vf-bubble-out {
-  max-width: 80%; padding: 11px 13px;
+  max-width: 80%; padding: 12px 14px;
   border-radius: var(--r-md); border-bottom-right-radius: 3px;
   background: var(--green); color: var(--green-ink);
   font-size: 13px; font-weight: 700; line-height: 1.4;

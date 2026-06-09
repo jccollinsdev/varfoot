@@ -88,7 +88,7 @@ export function Nutrition({
   return (
     <>
       <TopBar title="Fuel" streak={streak} onAvatarTap={onAvatarTap} initials={initials} />
-      <div className="content-area content-scroll" style={{ padding: "18px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <Card style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 16 }}>
           <Ring size={104} pct={caloriePct} sw={9}>
             <div style={{ textAlign: "center" }}>
@@ -110,7 +110,7 @@ export function Nutrition({
         </div>
 
         {meals.length === 0 ? (
-          <FlatCard style={{ textAlign: "center", padding: "28px 18px" }}>
+          <FlatCard style={{ textAlign: "center", padding: "24px 16px" }}>
             <Eyebrow className="mb-2">Today&rsquo;s log is empty</Eyebrow>
             <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.55 }}>
               Search the USDA food database and add real meals — every number here comes straight from what you log.

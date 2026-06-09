@@ -67,7 +67,7 @@ export function DrillDetail({
           </button>
         }
       />
-      <div className="content-area content-scroll" style={{ padding: "20px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <div className="vf-card-flat" style={{ padding: 0, overflow: "hidden", marginBottom: 14 }}>
           <Image src={drill.imagePath} alt={drill.name} width={400} height={240} style={{ width: "100%", height: "auto", display: "block" }} />
         </div>

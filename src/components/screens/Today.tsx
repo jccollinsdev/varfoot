@@ -11,6 +11,7 @@ import { Eyebrow, FlatCard, Ring, TopBar, initialsOf } from "@/components/ui";
 import { getDrill } from "@/data/drillCatalog";
 import { readinessLevelLabels } from "@/lib/scoring";
 import type { GapItem, ReadinessSummary } from "@/lib/readiness";
+import { localTodayIso } from "@/lib/varfoot";
 import type { AssessmentState, RoadmapNode, RoadmapState } from "@/lib/varfoot";
 
 function greetingFor(name: string) {
@@ -26,7 +27,7 @@ function currentNode(roadmap: RoadmapState): RoadmapNode | null {
 
 function sessionLabel(node: RoadmapNode | null) {
   if (!node?.date) return "Up next";
-  return node.date === new Date().toISOString().slice(0, 10) ? "Today’s session" : "Up next";
+  return node.date === localTodayIso() ? "Today’s session" : "Up next";
 }
 
 export function Today({
@@ -62,7 +63,7 @@ export function Today({
   return (
     <>
       <TopBar title="VarFoot" streak={streak} onAvatarTap={onAvatarTap} initials={initialsOf(assessment.name)} />
-      <div className="content-area content-scroll" style={{ padding: "18px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <div className="flex items-center gap-2 mb-4">
           <HandWaving size={18} weight="fill" color="var(--yellow)" />
           <h1 style={{ fontSize: 19, fontWeight: 900, letterSpacing: "-.02em" }}>{greetingFor(assessment.name)}</h1>

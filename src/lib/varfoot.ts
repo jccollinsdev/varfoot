@@ -78,13 +78,24 @@ export function isLoggedForSession(result: DrillResult | undefined): boolean {
   return Boolean(result && result.source !== "assessment" && (result.skipped || result.value != null));
 }
 
+/** One readiness snapshot captured at the end of a completed training session.
+ * Stored chronologically in `AppState.history` to power the Progress sparkline. */
+export type ProgressSnapshot = {
+  /** ISO date (yyyy-mm-dd). */
+  date: string;
+  /** Overall Varsity Readiness score at the time of this snapshot (0–100, rounded). */
+  overall: number;
+  /** Per-category scores keyed by ReadinessCategoryKey (rounded). */
+  categories: Record<string, number>;
+};
+
 export type RoadmapNodeStatus = "locked" | "current" | "completed";
 
 export type RoadmapNode = {
   id: string;
   /** 0-based sequential position on the path. */
   index: number;
-  /** Short display label, e.g. "Day 4". */
+  /** Short display label — the focus category for the session, e.g. "Passing". */
   label: string;
   /** ISO date (yyyy-mm-dd) once scheduled against the goal date; null while still a future placeholder. */
   date: string | null;
@@ -157,6 +168,8 @@ export type AppState = {
       completedDrillIndexes: number[];
     };
   };
+  /** Chronological readiness snapshots, one per completed session. Powers the Progress sparkline. */
+  history: ProgressSnapshot[];
 };
 
 export const blankAssessment: AssessmentState = {
@@ -175,10 +188,10 @@ export const blankAssessment: AssessmentState = {
 };
 
 /**
- * Daily macro targets derived from the PDF's 3,500 kcal/day varsity fueling goal using a
- * standard athlete split (~18% protein / ~50% carb / ~25% fat, rounded to clean numbers —
- * documented in docs/benchmark-assumptions.md). These are starting targets the player can
- * see progress against; they are not medical advice.
+ * Fallback macro targets used when athlete biometrics are unavailable.
+ * Based on the PDF's 3,500 kcal/day varsity fueling goal with a standard athlete split
+ * (~18% protein / ~50% carb / ~25% fat). Personalized targets are computed via
+ * Mifflin-St Jeor in `computeNutritionTargets` below; these are only the defaults.
  */
 export const defaultNutritionTargets = {
   calorieTarget: 3500,
@@ -254,6 +267,7 @@ export function createBlankState(): AppState {
         completedDrillIndexes: [],
       },
     },
+    history: [],
   };
 }
 
@@ -359,6 +373,12 @@ const mealSchema = z.object({
   ingredients: z.array(mealIngredientSchema),
 });
 
+const progressSnapshotSchema = z.object({
+  date: z.string(),
+  overall: z.number(),
+  categories: z.record(z.string(), z.number()),
+});
+
 export const appStateSchema = z.object({
   onboardingComplete: z.boolean(),
   activeTab: z.enum(["today", "plan", "train", "fuel", "coach"]),
@@ -403,6 +423,7 @@ export const appStateSchema = z.object({
       completedDrillIndexes: z.array(z.number()),
     }),
   }),
+  history: z.array(progressSnapshotSchema).default([]),
 });
 
 const macroTotalsShape = { calories: 0, protein: 0, carbs: 0, fat: 0 };

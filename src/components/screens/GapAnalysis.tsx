@@ -44,7 +44,7 @@ export function GapAnalysis({
   return (
     <>
       <BackBar title="Gap Analysis" sub={`${atVarsity}/${measured.length} at varsity level`} onBack={onBack} />
-      <div className="content-area content-scroll" style={{ padding: "20px 18px 28px" }}>
+      <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.55, marginBottom: 16 }}>
           Every drill you measured, grouped by category — weakest category first, weakest drill
           first within it. Tap a category to expand it, then tap a drill for the full breakdown.
