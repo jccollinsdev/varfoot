@@ -146,7 +146,7 @@ export function Coach({
 
       <div className="vf-footer" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {messages.length === 0 && (
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, maxWidth: "100%", touchAction: "pan-x" }}>
             {QUICK_PROMPTS.map((prompt) => (
               <button
                 key={prompt}
