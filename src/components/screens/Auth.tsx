@@ -1,8 +1,8 @@
 "use client";
 
-// Sign-in / sign-up gate. Sign-up is the default mode — judges and real users both
-// go through the real onboarding flow (no email confirmation required, disabled via
-// Supabase dashboard). "Explore demo" is a smaller escape hatch for quick preview.
+// Sign-in / sign-up gate. Sign-up is the default — everyone goes through the real
+// onboarding flow (email confirmation disabled in Supabase dashboard). Demo persona
+// is still accessible from the Profile sheet after onboarding.
 
 import { useState } from "react";
 import Image from "next/image";
@@ -17,14 +17,10 @@ export function Auth({
   loading,
   error,
   onSubmit,
-  onDemo,
-  onStartLocal,
 }: {
   loading: boolean;
   error: string | null;
   onSubmit: (mode: "sign-in" | "sign-up", email: string, password: string) => Promise<void>;
-  onDemo: () => void;
-  onStartLocal: () => void;
 }) {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-up");
   const { register, handleSubmit, formState: { errors } } = useForm<AuthForm>({ resolver: zodResolver(authSchema) });
@@ -59,20 +55,6 @@ export function Auth({
           style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}
         >
           {mode === "sign-up" ? "Already have an account? Sign in" : "No account? Create one free"}
-        </button>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0" }}>
-          <div style={{ flex: 1, height: 1, background: "var(--border-soft)" }} />
-          <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>or</span>
-          <div style={{ flex: 1, height: 1, background: "var(--border-soft)" }} />
-        </div>
-
-        <button
-          type="button"
-          onClick={onDemo}
-          style={{ height: 40, borderRadius: "var(--r-sm)", border: "1px solid var(--border-soft)", background: "transparent", color: "var(--text-2)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-        >
-          Explore demo (no account needed)
         </button>
       </div>
     </div>

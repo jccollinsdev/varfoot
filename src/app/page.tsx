@@ -584,7 +584,7 @@ function App() {
   if (!hydrated) return <LoadingScreen message="Loading VarFoot…" />;
   if (!localMode && !demoMode && !guestMode && (authLoading || bootstrapLoading)) return <LoadingScreen message="Loading your profile…" />;
   if (!localMode && !demoMode && !guestMode && !session) {
-    return <Auth loading={authLoading} error={authError} onSubmit={handleAuthSubmit} onDemo={loadDemo} onStartLocal={startLocalAssessment} />;
+    return <Auth loading={authLoading} error={authError} onSubmit={handleAuthSubmit} />;
   }
   if (!state.onboardingComplete) {
     return (
