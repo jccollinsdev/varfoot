@@ -33,7 +33,13 @@ function ScreenshotCarousel() {
       <div className="vf-car-phone">
         <div className="vf-car-inner">
           {SCREENS.map((scr, i) => (
-            <img key={scr.src} src={scr.src} alt={scr.label}
+            <Image
+              key={scr.src}
+              src={scr.src}
+              alt={`${scr.label} — ${scr.caption}`}
+              fill
+              sizes="(max-width: 900px) 52vw, 360px"
+              priority={i === 0}
               className={`vf-car-slide${i === idx ? " active" : i === prev ? " out" : ""}`}
             />
           ))}

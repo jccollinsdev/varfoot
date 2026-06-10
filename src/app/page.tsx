@@ -403,13 +403,28 @@ function App() {
       saveGuestMode(true);
     }
     const nutritionTargets = computeNutritionTargets(assessment);
-    patchState((prev) => ({
-      ...prev,
-      onboardingComplete: true,
-      assessment,
-      drillResults: { ...prev.drillResults, ...drillResults },
-      nutrition: { ...prev.nutrition, ...nutritionTargets },
-    }));
+    patchState((prev) => {
+      const mergedDrills = { ...prev.drillResults, ...drillResults };
+      // Seed a baseline readiness snapshot from the just-completed assessment so the Progress
+      // sparkline has a real starting point. Without this, a brand-new player sees an empty
+      // trend until they finish a full roadmap session — the most motivating view is hidden on
+      // exactly the path a first-time user (or a judge) takes.
+      const baseline = computeReadiness(assessment, mergedDrills, prev.roadmap);
+      const baselineSnapshot: ProgressSnapshot = {
+        date: localTodayIso(),
+        overall: Math.round(baseline.overall),
+        categories: Object.fromEntries(baseline.categories.map((c) => [c.key, Math.round(c.score)])),
+      };
+      const history = (prev.history ?? []).length === 0 ? [baselineSnapshot] : prev.history;
+      return {
+        ...prev,
+        onboardingComplete: true,
+        assessment,
+        drillResults: mergedDrills,
+        nutrition: { ...prev.nutrition, ...nutritionTargets },
+        history,
+      };
+    });
     setRootTab("today");
     setStack([{ id: "today" }, { id: "readiness", firstRun: true }]);
   }

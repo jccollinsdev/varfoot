@@ -2,7 +2,8 @@
 
 **Hackathon:** LexHack '26  
 **Theme:** Build for Someone Real  
-**Live URL:** [varfooty.vercel.app](https://varfooty.vercel.app)  
+**Live app:** [varfoot.vercel.app](https://varfoot.vercel.app) (the running app)  
+**Landing page:** [varfooty.vercel.app](https://varfooty.vercel.app) (marketing; links to the app)  
 **Stack:** Next.js 16.2.7 · React 19 · TypeScript · Supabase · Gemini 3.1 Flash Lite · USDA FoodData Central · Vercel
 
 ---
@@ -54,7 +55,7 @@ The app delivers:
 
 ```
 Auth → Supabase (RLS, no email confirm)
-Onboarding (22 steps, sessionStorage draft)
+Onboarding (19 measured drills + profile slides, sessionStorage draft)
   ↓ computeNutritionTargets(assessment)   → personalized macro targets
   ↓ generateRoadmap(assessment, gaps)      → deterministic, gap-first, 28-node plan
 App shell (AppState, autosave 600ms debounce)
@@ -120,8 +121,8 @@ App shell (AppState, autosave 600ms debounce)
 |---|---|
 | Real sign-up flow | Auth defaults to sign-up. No email confirmation required. Judges go through real onboarding. |
 | Aha moment in onboarding | Score reveal on the DoneSlide — judges feel the payoff immediately after their 19 drills. |
-| Demo persona in Profile | "Load demo athlete" (Jordan Reyes, JV Midfielder) still accessible from the avatar profile sheet — available to judges who want to see a fully-populated state without doing onboarding. |
-| Live at varfooty.vercel.app | Deployed, USDA API key configured, Gemini API key configured, Supabase no-email-confirm enabled. |
+| Demo persona | "Explore as Jordan Reyes" on the auth screen, and "Load demo athlete" in the profile sheet — both give judges a fully-populated state without onboarding. |
+| Live at varfoot.vercel.app | Deployed, USDA API key configured, Gemini API key configured, Supabase no-email-confirm enabled. Marketing landing at varfooty.vercel.app links here. |
 | Backlog documented | `backlog.md` includes a 90-second demo video script and a Devpost personal story draft. |
 
 #### What's still needed (pre-submission)
@@ -161,7 +162,13 @@ App shell (AppState, autosave 600ms debounce)
 | `8c90e93` | Avatar initials on all 4 tabs, demo mode label in Profile, README rewrite |
 | `3fce154` | Switch to Gemini 3.1 Flash Lite; demo data coherence (71/70/55 tiles, Speed as biggest gap, Day 1 completed, local-time meal timestamps) |
 | `eb0b1e6` | **Major rubric fixes** (16 files, 461 insertions) — see table below |
-| current | Remove demo from Auth; all judges go through real onboarding |
+| `92d2b80` | Vitest suite, Progress sparkline, demo path, README corrections |
+| `6bd83a1`+ | Rename to VarFooty, new V-cleat logo, editorial desktop landing page |
+
+### Session 3 — Domain split + final audit
+| Commit | What |
+|---|---|
+| `ad6f57d` | Hard domain split: `varfooty.vercel.app` = marketing carousel landing (`/landing` via middleware), `varfoot.vercel.app` = the app. Demo persona kept on both the auth screen and the profile sheet. |
 
 #### `eb0b1e6` detail
 
