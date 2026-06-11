@@ -1,42 +1,74 @@
 # VarFoot Backlog
 
-Items deferred from the pre-submission rubric audit. Not blocking launch but worth addressing before or immediately after the hackathon.
+Items that are useful after the LexHack submission, but are no longer blockers for the demo.
 
 ---
 
-## P18 — Record a demo video (backup for live presentation)
+## P1 - Upload the final demo video
 
-**Why:** Live demos fail. Network issues, Gemini rate limits, Supabase cold starts — any of these can freeze the demo during judging. A pre-recorded fallback protects the presentation.
+The generated local video should land at:
 
-**What to record (90 seconds):**
-1. Auth screen → click "Explore demo" (0:00–0:05)
-2. Today tab — show score ring (70/100 JV), streak, tiles, biggest gap (0:05–0:25)
-3. Tap a session to open it → log one drill result → session complete modal appears (0:25–0:50)
-4. Fuel tab — show macros logged, ring progress (0:50–1:05)
-5. Coach tab — ask "What should I work on first?" → see streaming response (1:05–1:25)
+`demo/varfoot-demo-2min.mp4`
 
-**Tool suggestion:** QuickTime screen recording on Mac, or Loom for easy sharing.
+Upload it to YouTube or Vimeo with embedding enabled, then paste the hosted link into Devpost. Devpost requires a hosted demo video; a local MP4 in the repo is not enough.
 
 ---
 
-## P19 — Write the personal story for Devpost
+## P2 - Add biological-sex or growth-context nutrition settings
 
-**Why:** The hackathon theme is "Build for Someone Real." A feature-list description scores lower than a personal narrative. Judges weight the story heavily.
+Current state:
 
-**Draft opening (adapt freely):**
+- Calorie targets use a sex-neutral Mifflin-St Jeor midpoint because the app does not collect biological sex.
+- Protein is capped around `1.5 g/kg/day`, a conservative youth-athlete planning estimate.
+- Coach prompts explicitly avoid medical-style nutrition prescriptions.
 
-> I played JV soccer and had no real training plan. I could find skill drill PDFs online but had no idea whether my numbers were any good, what to prioritize first, or how to track whether I was improving.
->
-> VarFoot is what I wished I'd had: a 19-drill baseline assessment that maps you to real freshman/JV/varsity benchmarks, an AI-generated roadmap prioritized around your actual gaps, a grounded AI coach that answers with your real data — not canned advice — and a nutrition tracker connected to the USDA food database.
->
-> It's built for the player who wants to make varsity and just needs a plan.
+Future improvement:
 
-**After the story, list features.** Don't lead with features.
+- Add an optional, carefully worded nutrition-settings screen.
+- Explain why the question is being asked.
+- Let players skip it.
+- Keep guidance framed as estimates and encourage parent/clinician support.
 
 ---
 
-## Minor / Out-of-scope
+## P3 - Make streaks calendar-aware
 
-- **Nutrition targets for female athletes** — currently uses male Mifflin-St Jeor as default. Add a biological-sex field to the onboarding BodySlide to switch the equation. Deferred because no sex field is collected today.
-- **Coach message persistence across sessions** — coach messages currently stored in AppState and synced to Supabase, but a very long conversation could grow AppState significantly. Consider truncating to last 50 messages on save.
-- **Streak date validation** — streak currently counts consecutive completed roadmap nodes, not actual calendar days. A future improvement would compare `node.date` to calendar days to detect missed sessions.
+Current state:
+
+- The app labels the value as a **session streak**.
+- It counts consecutive completed roadmap nodes.
+
+Future improvement:
+
+- Track completion dates separately from scheduled node dates.
+- Decide whether missed sessions break the streak or simply pause it.
+- Show both "sessions completed" and "calendar streak" if both are useful.
+
+---
+
+## P4 - Harden benchmark validation with coaches
+
+Current state:
+
+- Varsity targets are treated as the top anchor.
+- Freshman/JV anchors are modeled so the score can communicate progress.
+
+Future improvement:
+
+- Interview one or two soccer coaches.
+- Tune freshman/JV anchors by position and age band.
+- Add an in-app note that benchmarks are training references, not selection guarantees.
+
+---
+
+## P5 - Keep coach context compact
+
+Current state:
+
+- Coach messages are stored in app state and synced.
+- The Gemini request uses recent history, not the entire conversation.
+
+Future improvement:
+
+- Truncate persisted coach history after a safe limit.
+- Add a summary field if long-term conversation memory becomes useful.

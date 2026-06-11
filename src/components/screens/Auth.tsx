@@ -32,8 +32,8 @@ export function Auth({
 
   return (
     <div style={{ background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100dvh", padding: "0 24px" }}>
-      <Image src="/varfoot-mark.svg" alt="VarFoot" width={52} height={52} style={{ marginBottom: 8 }} />
-      <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>VarFoot</h1>
+      <Image src="/varfoot-mark.svg" alt="VarFoot" width={52} height={52} loading="eager" style={{ marginBottom: 8 }} />
+      <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: 0, marginBottom: 4 }}>VarFoot</h1>
       <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 24, fontWeight: 600 }}>Train with purpose. Make varsity.</p>
 
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -49,9 +49,9 @@ export function Auth({
         )}
 
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <input className="vf-input" type="email" placeholder="Email" {...register("email")} autoComplete="email" />
+          <input className="vf-input" type="email" aria-label="Email" placeholder="Email" {...register("email")} autoComplete="email" />
           {errors.email && <p style={{ fontSize: 11, color: "var(--red)", marginTop: -6, fontWeight: 700 }}>{errors.email.message}</p>}
-          <input className="vf-input" type="password" placeholder="Password (min 6 chars)" {...register("password")} autoComplete={mode === "sign-in" ? "current-password" : "new-password"} />
+          <input className="vf-input" type="password" aria-label="Password" placeholder="Password (min 6 chars)" {...register("password")} autoComplete={mode === "sign-in" ? "current-password" : "new-password"} />
           {errors.password && <p style={{ fontSize: 11, color: "var(--red)", marginTop: -6, fontWeight: 700 }}>{errors.password.message}</p>}
           <button type="submit" className="vf-btn" disabled={loading} style={{ marginTop: 4 }}>
             {loading ? "Loading…" : mode === "sign-up" ? "Create account & start" : "Sign in"}
@@ -72,9 +72,10 @@ export function Auth({
             <button
               type="button"
               onClick={onLoadDemo}
-              style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}
+              className="vf-btn-ghost"
+              style={{ width: "100%", alignSelf: "stretch", height: 44, borderColor: "var(--green-line)", color: "var(--text)", fontWeight: 900 }}
             >
-              No time to sign up? Explore as Jordan Reyes →
+              Explore demo athlete
             </button>
           </>
         )}

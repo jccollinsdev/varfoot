@@ -146,7 +146,7 @@ export function Coach({
 
       <div className="vf-footer" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {messages.length === 0 && (
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, maxWidth: "100%", touchAction: "pan-x" }}>
+          <div className="vf-scroll-x" style={{ display: "flex", gap: 8, paddingBottom: 2, maxWidth: "100%", touchAction: "pan-x" }}>
             {QUICK_PROMPTS.map((prompt) => (
               <button
                 key={prompt}
@@ -165,6 +165,7 @@ export function Coach({
             <input
               className="vf-input"
               style={{ width: "100%", paddingRight: draft.length > 400 ? 36 : undefined }}
+              aria-label="Ask the coach"
               placeholder="Ask about your gaps, plan, or nutrition…"
               value={draft}
               maxLength={480}

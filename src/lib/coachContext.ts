@@ -66,7 +66,10 @@ export function buildCoachContext(state: AppState): string {
   const totals = getDailyNutritionTotals(nutrition.meals.filter((m) => localDateOf(m.loggedAt) === today));
   lines.push(
     `Today's nutrition logged so far: ${Math.round(totals.calories)} kcal, ${Math.round(totals.protein)}g protein ` +
-      `(targets: ${nutrition.calorieTarget} kcal / ${nutrition.proteinTarget}g protein).`,
+      `(planning estimates, not medical prescriptions: ${nutrition.calorieTarget} kcal / ${nutrition.proteinTarget}g protein).`,
+  );
+  lines.push(
+    "Nutrition safety: the player is a teenager. Do not prescribe exact calorie/protein targets as commands, do not tell them to log food they have not eaten, and frame fueling advice as balanced meals/snacks, hydration, and checking with a parent, coach, or clinician for personalized nutrition.",
   );
 
   return lines.join("\n");

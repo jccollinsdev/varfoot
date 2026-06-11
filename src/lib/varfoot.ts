@@ -201,24 +201,28 @@ export const defaultNutritionTargets = {
 };
 
 /**
- * Compute personalized daily macro targets using Mifflin-St Jeor BMR × activity multiplier
- * + 200 kcal teen-growth allowance. Macros: 30% protein / 50% carbs / 20% fat.
+ * Compute personalized daily macro targets using a sex-neutral Mifflin-St Jeor midpoint
+ * × activity multiplier + 200 kcal teen-growth allowance. Protein is capped to a
+ * youth-athlete planning target (~1.5 g/kg/day); carbs absorb the remaining energy.
  * Falls back to `defaultNutritionTargets` proportions if assessment data is missing.
  */
 export function computeNutritionTargets(assessment: AssessmentState) {
   const weightKg = (assessment.weightLbs ?? 155) * 0.453592;
   const heightCm = (assessment.heightInches ?? 68) * 2.54;
   const age = Math.max(10, Math.min(30, parseInt(assessment.age) || 16));
-  // Mifflin-St Jeor (male default — soccer training population skews male and PDF benchmarks reflect male targets)
-  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+  // Midpoint between the Mifflin-St Jeor male (+5) and female (-161) constants.
+  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 78;
   const days = assessment.trainingDaysPerWeek;
   const activityFactor = days <= 1 ? 1.375 : days <= 3 ? 1.55 : days <= 5 ? 1.725 : 1.9;
   const calorieTarget = Math.round((bmr * activityFactor + 200) / 50) * 50;
+  const proteinTarget = Math.round((weightKg * 1.5) / 5) * 5;
+  const fatTarget = Math.round((calorieTarget * 0.25) / 9 / 5) * 5;
+  const carbTarget = Math.max(0, Math.round(((calorieTarget - proteinTarget * 4 - fatTarget * 9) / 4) / 5) * 5);
   return {
     calorieTarget,
-    proteinTarget: Math.round((calorieTarget * 0.30) / 4 / 5) * 5,
-    carbTarget: Math.round((calorieTarget * 0.50) / 4 / 5) * 5,
-    fatTarget: Math.round((calorieTarget * 0.20) / 9 / 5) * 5,
+    proteinTarget,
+    carbTarget,
+    fatTarget,
   };
 }
 

@@ -45,3 +45,5 @@ next-env.d.ts
 
 # demo-reel build scratch (regenerate with: bash .reel/build.sh)
 .reel/
+demo/video-build/
+outputs/

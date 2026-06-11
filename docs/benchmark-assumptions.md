@@ -1,6 +1,6 @@
 # VarFoot Benchmark Assumptions
 
-Date: 2026-06-07
+Date: 2026-06-11
 
 ## Core assumptions
 
@@ -12,6 +12,8 @@ Date: 2026-06-07
 - Freshman and JV targets were inferred for every scored metric in the app, including the PDF drills and the expanded 50-drill catalog.
 - Height and weight are collected for context only. They are not scored and do not directly penalize readiness.
 - `availableDays` and `goalFocus` shape planning / coaching context only. They do not change readiness scoring.
+- Nutrition targets are planning estimates. They are not medical prescriptions, and the coach prompt is instructed to avoid exact calorie/protein commands for minors.
+- Protein targets use about `1.5 g/kg/day`, based on youth-athlete guidance, rather than a high percentage-of-calories formula.
 
 ## Scored profile caveats
 
@@ -19,6 +21,17 @@ Date: 2026-06-07
 - Weight: contextual only, not scored.
 - Current level / target level / tryout date / training days: used for planning and plan-readiness, not raw athletic scoring.
 - Weight / performance goal: coaching / roadmap context only, not scored directly.
+
+## Nutrition caveats
+
+VarFoot does not collect biological sex, puberty stage, medical history, or clinician guidance, so its nutrition math is intentionally conservative:
+
+- Calorie estimates use a sex-neutral Mifflin-St Jeor midpoint.
+- Protein targets are capped around `1.5 g/kg/day` and rounded to the nearest 5g.
+- Fat uses about 25% of estimated calories.
+- Carbohydrates receive the remaining estimated calories because soccer training is carbohydrate-demanding.
+
+These estimates are intended to help a player notice whether they are under-fueled, hydrated, and recovering. They should not be presented as diet instructions.
 
 ## Direction + benchmarks
 

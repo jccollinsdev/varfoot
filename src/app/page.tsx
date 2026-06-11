@@ -201,7 +201,14 @@ function BottomNav({ active, onSelect }: { active: RootTab; onSelect: (t: RootTa
       {NAV_TABS.map(({ id, Icon }) => {
         const on = id === active;
         return (
-          <button key={id} type="button" className="nav-item" onClick={() => onSelect(id)}>
+          <button
+            key={id}
+            type="button"
+            className="nav-item"
+            aria-label={NAV_TAB_LABELS[id]}
+            aria-current={on ? "page" : undefined}
+            onClick={() => onSelect(id)}
+          >
             <Icon size={22} weight={on ? "fill" : "regular"} color={on ? "var(--green)" : "var(--text-3)"} />
             <span className="nav-label" style={{ color: on ? "var(--green)" : "var(--text-3)" }}>{NAV_TAB_LABELS[id]}</span>
           </button>
@@ -658,7 +665,7 @@ function App() {
           >
             <div style={{ fontSize: 48, marginBottom: 8 }}>⚡</div>
             <p style={{ fontSize: 11, fontWeight: 800, color: "var(--green)", textTransform: "uppercase", letterSpacing: ".14em", marginBottom: 6 }}>Session complete</p>
-            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: 0, marginBottom: 4 }}>
               {sessionCompleteModal.score}
               <span style={{ fontSize: 16, color: "var(--text-3)", fontWeight: 700 }}>/100</span>
             </h2>
@@ -668,7 +675,7 @@ function App() {
               </p>
             )}
             <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-2)", marginBottom: 16 }}>
-              {sessionCompleteModal.level.toUpperCase()} · {sessionCompleteModal.streak} day streak 🔥
+              {sessionCompleteModal.level.toUpperCase()} · {sessionCompleteModal.streak} session streak 🔥
             </p>
             <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.55, maxWidth: 260, marginBottom: 28 }}>
               Your plan has been updated — the next session is already queued based on your current gaps.

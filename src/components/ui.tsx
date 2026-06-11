@@ -360,7 +360,7 @@ export function BackBar({ title, sub, onBack, action }: { title: string; sub?: s
         <CaretLeft size={20} weight="bold" color="var(--green)" /> Back
       </button>
       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", textAlign: "center" }}>
-        <p style={{ fontSize: 15, fontWeight: 900, letterSpacing: "-.02em", color: "var(--text)", whiteSpace: "nowrap" }}>{title}</p>
+        <p style={{ fontSize: 15, fontWeight: 900, letterSpacing: 0, color: "var(--text)", whiteSpace: "nowrap" }}>{title}</p>
         {sub && <p style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>{sub}</p>}
       </div>
       <div>{action}</div>
@@ -382,7 +382,7 @@ export function TopBar({ title, streak, onAvatarTap, initials = "VA" }: { title:
         <div style={{ width: 30, height: 30, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--surface)" }}>
           <Image src="/varfoot-mark.svg" alt="" width={20} height={20} />
         </div>
-        <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: "-.03em" }}>{title}</span>
+        <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: 0 }}>{title}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {streak > 0 && (

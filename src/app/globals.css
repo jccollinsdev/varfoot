@@ -281,6 +281,23 @@ body {
 }
 .vf-chip.on { background: var(--green-ghost); border-color: var(--green-line); color: var(--green); }
 
+.vf-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.vf-scroll-x::-webkit-scrollbar { display: none; }
+.vf-scroll-x > .vf-chip,
+.vf-scroll-x > .vf-seg-btn {
+  flex: 0 0 auto;
+}
+.vf-scroll-x > .vf-seg-btn {
+  min-width: max-content;
+  padding-left: 12px;
+  padding-right: 12px;
+  overflow-wrap: normal;
+}
+
 .vf-seg {
   display: flex; gap: 4px; background: var(--surface-2);
   padding: 4px; border-radius: var(--r-sm); border: 1px solid var(--border-soft);
@@ -564,4 +581,3 @@ body {
   transition: color .15s;
 }
 .vf-footer a:hover { color: var(--green); }
-

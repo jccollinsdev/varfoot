@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyReadiness, scoreMetric, weightedComposite } from "../scoring";
+import { computeNutritionTargets, type AssessmentState } from "../varfoot";
 
 const HIB = { freshmanTarget: 40, jvTarget: 70, varsityTarget: 100, scoreDirection: "higher_is_better" as const };
 const LIB = { freshmanTarget: 40, jvTarget: 25, varsityTarget: 10, scoreDirection: "lower_is_better" as const };
@@ -55,5 +56,31 @@ describe("weightedComposite", () => {
   });
   it("throws in dev when weights don't sum to 1", () => {
     expect(() => weightedComposite([{ score: 50, weight: 0.4 }, { score: 50, weight: 0.4 }])).toThrow();
+  });
+});
+
+describe("computeNutritionTargets", () => {
+  const assessment: AssessmentState = {
+    name: "Jordan",
+    age: "16",
+    school: "Test HS",
+    position: "Midfielder",
+    heightInches: 68,
+    weightLbs: 155,
+    availableDays: [],
+    currentLevel: "jv",
+    targetLevel: "varsity",
+    tryoutDate: null,
+    trainingDaysPerWeek: 4,
+    goalFocus: "",
+  };
+
+  it("uses a youth-athlete protein target instead of a high calorie-percentage target", () => {
+    const targets = computeNutritionTargets(assessment);
+
+    expect(targets.calorieTarget).toBe(3000);
+    expect(targets.proteinTarget).toBe(105);
+    expect(targets.proteinTarget).toBeLessThan(120);
+    expect(targets.carbTarget).toBeGreaterThan(targets.proteinTarget);
   });
 });

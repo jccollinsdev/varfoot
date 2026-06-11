@@ -271,7 +271,7 @@ function SlideHeading({ eyebrow, title, sub }: { eyebrow: string; title: string;
   return (
     <div style={{ marginBottom: 22 }}>
       <Eyebrow tone="green">{eyebrow}</Eyebrow>
-      <h1 style={{ fontSize: 23, fontWeight: 900, letterSpacing: "-.03em", marginTop: 4, marginBottom: 6 }}>{title}</h1>
+      <h1 style={{ fontSize: 23, fontWeight: 900, letterSpacing: 0, marginTop: 4, marginBottom: 6 }}>{title}</h1>
       <p style={{ fontSize: 13, color: "var(--text-3)", lineHeight: 1.5 }}>{sub}</p>
     </div>
   );
@@ -441,7 +441,7 @@ function DrillSlide({
   return (
     <div>
       <Eyebrow tone="green">{sectionLabel}</Eyebrow>
-      <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-.03em", marginTop: 4, marginBottom: 14 }}>{drill.name}</h1>
+      <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: 0, marginTop: 4, marginBottom: 14 }}>{drill.name}</h1>
 
       <div className="vf-card-flat" style={{ padding: 0, overflow: "hidden", marginBottom: 14 }}>
         <Image src={drill.imagePath} alt={drill.name} width={400} height={240} style={{ width: "100%", height: "auto", display: "block" }} />
@@ -553,7 +553,7 @@ function DoneSlide({ assessment, drafts }: { assessment: AssessmentState; drafts
         {readiness.level.toUpperCase()} LEVEL
       </p>
 
-      <h1 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-.03em", marginTop: 6, marginBottom: 10, maxWidth: 280 }}>
+      <h1 style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0, marginTop: 6, marginBottom: 10, maxWidth: 280 }}>
         {LEVEL_HEADLINES[readiness.level] ?? "Let's build from here."}
       </h1>
 

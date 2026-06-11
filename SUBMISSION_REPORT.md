@@ -1,219 +1,106 @@
-# VarFoot — Hackathon Submission Report
+# VarFoot - LexHack '26 Clinical Submission Audit
 
 **Hackathon:** LexHack '26  
-**Theme:** Build for Someone Real  
-**Live app:** [varfoot.vercel.app](https://varfoot.vercel.app) (the running app)  
-**Stack:** Next.js 16.2.7 · React 19 · TypeScript · Supabase · Gemini 3.1 Flash Lite · USDA FoodData Central · Vercel
+**Theme:** Build for someone real  
+**Deadline:** June 12, 2026 at 10:00 PM EDT  
+**Live app:** [varfoot.vercel.app](https://varfoot.vercel.app)  
+**Demo path:** click **Explore demo athlete** on the auth screen  
+**Stack:** Next.js 16, React 19, TypeScript, Supabase, Gemini 3.1 Flash Lite, USDA FoodData Central, Vercel
 
 ---
 
-## What We Built
+## Clinical Grade
 
-VarFoot is a soccer-specific training PWA for JV, freshman, and club players who have no structured individual training path — only team practice and PDF drill sheets with no way to know how they stack up.
+**Current estimate: 88-91 / 100 if the final video is uploaded and the live deployment is current.**
 
-The app delivers:
-1. **19-drill baseline assessment** mapped to real freshman/JV/varsity benchmarks from the official drill PDF
-2. **Varsity Readiness score** (0–100 composite, piecewise-linear, weighted 40/25/15/10/10 across 5 categories)
-3. **Gap-driven roadmap** — deterministic weekly plan generated from your actual weakest drills
-4. **Session tracking** with post-session score delta and auto-regenerated future plan
-5. **USDA food database** — real macro math from live FoodData Central search
-6. **Streaming AI coach** — Gemini grounded in your actual readiness, gaps, roadmap, and nutrition. Streams character-by-character, includes conversation history.
-7. **Personalized nutrition targets** — Mifflin-St Jeor BMR × activity multiplier, adjusted per athlete
+This is now in prize-contending shape for LexHack because it speaks directly to the rubric: a specific player, a concrete pain point, a working app, real data, and a demo path judges can understand in under five minutes. The remaining ceiling risk is not engineering polish; it is whether the presentation makes judges feel the human problem before they see the feature list.
+
+| Criterion | Weight | Grade | Why |
+|---|---:|---:|---|
+| Impact / Usefulness | 40% | 36-38 / 40 | Strong real-person fit: a JV player trying to make varsity with no structured plan between practices. The app turns self-testing, planning, fueling, and coaching into one usable workflow. |
+| Technical Execution | 30% | 26-28 / 30 | Real auth/sync, strict TypeScript, tested scoring/roadmap logic, deterministic gap-first planning, USDA search, streaming Gemini coach, PWA shell, and regression tests for the date bug. |
+| Creativity + Design | 20% | 17-18 / 20 | The product framing is sharp: not a generic fitness tracker, but a varsity-readiness operating system. Mobile UI is polished, fast, and demoable. |
+| Presentation | 10% | 9 / 10 | Demo route, story doc, and generated slide/video assets are in place. Final score depends on uploading the 2-3 minute video and rehearsing the 5-minute live flow. |
 
 ---
 
-## Rubric Breakdown
+## What Works
 
-### 1. Impact / Usefulness — 40 points
+### Human Problem Fit
 
-**Estimated score: 30–33 / 40**
+VarFoot is built for the player who cares enough to train alone but does not know what to do next. That is a real high-school athlete problem: coaches give team feedback, YouTube gives random drills, and players are left guessing which weakness is blocking them from varsity.
 
-#### What lands well
+Jordan Reyes, the demo persona, makes the story concrete: a 16-year-old JV midfielder with a passing-first profile, a speed/agility gap, and a varsity tryout deadline. The app does not say "work harder." It says what to test, what the numbers mean, what to train first, what session is next, and how fueling/recovery fit into the plan.
 
-| Signal | Details |
+### Product Substance
+
+1. **19-drill baseline** across technical skill, physical readiness, speed, recovery, and fueling.
+2. **Varsity Readiness score** with freshman/JV/varsity anchors.
+3. **Gap analysis** sorted weakest-first, not manually cherry-picked.
+4. **Roadmap generation** from actual gaps and tryout date.
+5. **Session logging** that completes roadmap nodes and updates the future plan.
+6. **Progress view** with score history, radar, filters, and varsity-level badges.
+7. **Nutrition tracker** using USDA FoodData Central rather than fake food rows.
+8. **AI coach** streamed from Gemini and grounded in the athlete's real score, gaps, roadmap, and food log.
+
+### Engineering Signals
+
+- The roadmap date regression is fixed: regenerating after a completed future-dated session now continues after the latest completed session instead of rewinding to "today."
+- Youth nutrition safety is tightened: protein is now based on roughly `1.5 g/kg/day`, calories use a sex-neutral Mifflin-St Jeor midpoint, and coach prompts treat nutrition targets as planning estimates rather than prescriptions.
+- Focused tests cover the roadmap regression and protein target behavior.
+- Core checks are intended to remain green: `typecheck`, `lint`, `test`, and `build`.
+
+---
+
+## Main Risks
+
+### Impact Risk: Benchmarks Are Modeled
+
+The app has real soccer-specific drills, but freshman/JV targets are modeled assumptions where the source material only gave varsity anchors. This is documented in `docs/benchmark-assumptions.md`. In judging, describe the model honestly: "Varsity targets are the north star; freshman/JV are calibration points so a player can understand progress."
+
+### Safety Risk: Teen Nutrition
+
+The app must never sound like a medical diet plan for a minor. Current mitigation:
+
+- Targets are framed as estimates.
+- Protein is capped around a youth-athlete reference point.
+- The AI coach is instructed to avoid commanding exact calorie/protein targets.
+- The product language points toward balanced meals, snacks, hydration, and parent/coach/clinician support.
+
+### Presentation Risk: The Demo Can Drift
+
+A five-minute demo can get swallowed by onboarding. Use the demo athlete for judging, then mention the full assessment exists. The live flow should be:
+
+1. Auth screen: "This is for Jordan, a JV midfielder trying to make varsity."
+2. Today: readiness score, biggest gap, next session.
+3. Plan: gap-first roadmap and tryout date.
+4. Train/Progress: radar and weakest-first gaps.
+5. Fuel: real USDA search and macro totals, with safety framing.
+6. Coach: ask "What should Jordan work on first?"
+
+---
+
+## Rubric Improvements Made
+
+| Area | Improvement |
 |---|---|
-| Real problem, real person | JV/freshman players have zero structured individual training between team practices. No app addresses this gap — they use PDF drill sheets with no scoring, no plan, no feedback. |
-| Real data everywhere | 13 skill drills from the actual PDF (varsity targets verbatim), USDA FoodData Central API for nutrition, Gemini grounded in the player's real state |
-| The gap-first roadmap | Not a generic "day 1, day 2" plan — generated by ranking measured gaps and prioritizing the highest-weighted, lowest-scored skills. Adapts after each session. |
-| Personalized nutrition | Mifflin-St Jeor + activity factor per athlete. A 120-lb 14-year-old gets ~2400 kcal, not the same 3500 kcal as everyone else. |
-| Grounded AI coach | Coach prompt includes: name, position, target level, tryout date, readiness score, top 5 measured gaps, today's roadmap session, macro totals. Nothing generic. |
-
-#### Remaining risks
-
-- **19-step onboarding is still long** — now saved to sessionStorage so refresh doesn't restart, and the DoneSlide aha moment makes the payoff clear. But the length itself is a barrier for casual sign-ups.
-- **No historical trend chart** — no "you improved 4 points since last week" visualization. The most emotionally resonant feature of any training app is absent.
-- **Invented JV benchmarks** — varsity targets come from the PDF. Freshman/JV targets for most drills are modeled assumptions (documented in `docs/benchmark-assumptions.md`). If a judge tests their actual performance, the benchmarks may feel off.
+| Impact | Added a stronger demo/persona path and Devpost-ready story centered on a JV player trying to make varsity. |
+| Technical | Fixed roadmap regeneration after completed future sessions; added regression coverage. |
+| Technical | Tightened nutrition target math and coach safety prompt for teen athletes. |
+| Design | Made the judge demo CTA full-width and visible on auth. |
+| Design | Hid horizontal scrollbars and prevented Progress filter labels from compressing. |
+| Accessibility | Added auth input labels, coach input label, bottom-nav `aria-current`, nav labels, and profile dialog semantics. |
+| Presentation | Added final submission copy, a 2-3 minute video target, and a slide deck deliverable. |
 
 ---
 
-### 2. Technical Execution — 30 points
+## 90% Readiness Call
 
-**Estimated score: 24–27 / 30**
+VarFoot is effectively at **about 90% hackathon readiness** once the current build is deployed and the video is uploaded. The missing 10% is not another feature. It is final operating discipline:
 
-#### Architecture
+- Verify the deployed site is the current VarFoot build, not stale VarFooty branding.
+- Upload the generated 2-3 minute walkthrough to YouTube or Vimeo with embedding enabled.
+- Practice the live demo until it consistently finishes in five minutes.
+- Avoid over-explaining the scoring math before judges understand Jordan's problem.
 
-```
-Auth → Supabase (RLS, no email confirm)
-Onboarding (19 measured drills + profile slides, sessionStorage draft)
-  ↓ computeNutritionTargets(assessment)   → personalized macro targets
-  ↓ generateRoadmap(assessment, gaps)      → deterministic, gap-first, 28-node plan
-App shell (AppState, autosave 600ms debounce)
-  ├── Today: readiness ring, session card, top gap, coach note
-  ├── Plan: roadmap path, regenerate button, AI summary
-  ├── Train: 4-axis radar, gap list weakest-first, filter by bucket
-  ├── Fuel: local-day meals, USDA search, ring + macro bars
-  └── Coach: SSE streaming, conversation history, Gemini 3.1 Flash Lite
-```
-
-#### What works well
-
-| Area | Implementation |
-|---|---|
-| Streaming AI | `streamGemini()` AsyncGenerator → SSE route → client reads chunks → live bubble with blinking cursor. No wait-then-appear. |
-| Conversation memory | Last 6 messages (3 exchanges) sent to Gemini with each request. "How long each?" after "What drills?" now works. |
-| Session completion | Synchronous detection in `saveDrillResult` → `completeRoadmapNode` → `generateRoadmap` re-run → modal + auto-navigate. No stale state. |
-| Date filtering | `localTodayIso()` / `localDateOf()` — nutrition and coach context filter meals by local calendar day, not UTC. Works for UTC+ judges. |
-| PWA | `manifest.webmanifest` + `sw.js` cache-first service worker + `ServiceWorkerRegistration` client component. App is installable. |
-| Scoring model | Piecewise-linear interpolation: 0=floor, 40=freshman, 70=JV, 100=varsity. Direction-aware (lower_is_better for sprint times). Single source of truth in `scoring.ts`. |
-| Schema safety | Zod validation on all API routes and Supabase reads. State deserialization is always guarded. |
-| TypeScript | Zero `any`, strict null checks throughout, 0 typecheck errors. |
-
-#### Known gaps
-
-- **No before/after score delta** in the session complete modal — shows current score, not the delta from start of session
-- **Streak counts nodes, not calendar days** — Day 1 today + Day 2 in two weeks = streak: 2 (doesn't enforce consecutive calendar days)
-- **Nutrition targets don't account for biological sex** — uses male Mifflin-St Jeor by default (see backlog)
-
----
-
-### 3. Creativity + Design — 20 points
-
-**Estimated score: 15–17 / 20**
-
-#### What works well
-
-| Element | Why it works |
-|---|---|
-| Duolingo-style onboarding + aha moment | Section labels ("Physical / Technical Skills"), progress bar, and a final score-reveal Ring with level headline and Strength/Focus cards. Players see exactly where they stand before leaving the wizard. |
-| 4-axis radar | Technical, Physical, Speed, Nutrition — all soccer-meaningful. Plan axis removed. |
-| Focus-category node labels | Roadmap nodes say "Passing", "First Touch", "Speed/Agility" — not "Day 1, Day 2". Today screen reads "UP NEXT · PASSING". |
-| Post-session modal | Full-screen ⚡ celebration with score + streak + "plan updated" message. Emotional beat that was previously completely absent. |
-| "Strongest: Technical" | Plan readiness excluded from strongest/weakest computation — only skill categories shown. |
-| Coach streaming bubble | Response appears character by character with a blinking green cursor. Feels alive, not frozen. |
-| Dark premium aesthetic | `#0a0a0b` background, IBM Plex Mono for numbers, Nunito for headings, green accent — looks like a real product. |
-| JV/Varsity vocabulary | Speaks the player's language. "Freshman", "JV", "Varsity" — not abstract "beginner/intermediate/advanced". |
-
-#### Remaining gaps
-
-- No before/after trajectory visualization — Progress tab shows current state only, not improvement over time
-- The session complete modal uses emoji (⚡) which is fine for a teen audience but worth noting
-
----
-
-### 4. Presentation — 10 points
-
-**Estimated score: 7–8 / 10**
-
-#### What's in place
-
-| Item | Status |
-|---|---|
-| Real sign-up flow | Auth defaults to sign-up. No email confirmation required. Judges go through real onboarding. |
-| Aha moment in onboarding | Score reveal on the DoneSlide — judges feel the payoff immediately after their 19 drills. |
-| Demo persona | "Explore as Jordan Reyes" on the auth screen, and "Load demo athlete" in the profile sheet — both give judges a fully-populated state without onboarding. |
-| Live at varfoot.vercel.app | Deployed, USDA API key configured, Gemini API key configured, Supabase no-email-confirm enabled. |
-| Backlog documented | `backlog.md` includes a 90-second demo video script and a Devpost personal story draft. |
-
-#### What's still needed (pre-submission)
-
-- **Record the demo video** — see `backlog.md` for the exact 90-second script. Live demos fail; a recording protects the presentation.
-- **Write the Devpost description** — see `backlog.md` for the personal story draft. Lead with the story, not features.
-
----
-
-## Estimated Total Score
-
-| Criterion | Weight | Our Estimate | Points |
-|---|---|---|---|
-| Impact / Usefulness | 40% | 30–33/40 | 12–13.2 |
-| Technical Execution | 30% | 24–27/30 | 7.2–8.1 |
-| Creativity + Design | 20% | 15–17/20 | 3.0–3.4 |
-| Presentation | 10% | 7–8/10 | 0.7–0.8 |
-| **Total** | | **76–85 / 100** | |
-
-**Realistic range: 76–82.** A genuinely strong submission with real data, real AI, and a polished UI. The ceiling risk is Impact — judges who probe the onboarding length, invented JV benchmarks, or missing progress trajectory could dock 5–8 points there.
-
----
-
-## Full Changelog
-
-### Session 1 — Foundation
-| Commit | What |
-|---|---|
-| `8398286` | Supabase auth + cloud sync |
-| `c8de1a6` | Mobile-first PWA shell with 5-tab bottom nav |
-| `d6bc0fa` | Full onboarding wizard, readiness screen, all 5 tabs |
-| `f1bcde7` | Desktop app shell, wheel scroll forwarding |
-
-### Session 2 — Rubric Audit Fixes (this session)
-| Commit | What |
-|---|---|
-| `8c90e93` | Avatar initials on all 4 tabs, demo mode label in Profile, README rewrite |
-| `3fce154` | Switch to Gemini 3.1 Flash Lite; demo data coherence (71/70/55 tiles, Speed as biggest gap, Day 1 completed, local-time meal timestamps) |
-| `eb0b1e6` | **Major rubric fixes** (16 files, 461 insertions) — see table below |
-| `92d2b80` | Vitest suite, Progress sparkline, demo path, README corrections |
-| `6bd83a1`+ | Rename to VarFoot, new V-cleat logo, editorial desktop landing page |
-
-### Session 3 — Domain split + final audit
-| Commit | What |
-|---|---|
-| `ad6f57d` | Domain handling: the app is served at `varfoot.vercel.app`. (An earlier marketing-landing split was introduced here and later removed — there is now a single app, no separate marketing page.) Demo persona kept on both the auth screen and the profile sheet. |
-
-#### `eb0b1e6` detail
-
-| Fix | File(s) |
-|---|---|
-| Mifflin-St Jeor personalized nutrition targets | `varfoot.ts`, `page.tsx` |
-| Plan readiness excluded from strongest/weakest | `readiness.ts` |
-| Focus-category node labels ("Passing" not "Day 1") | `roadmap.ts` |
-| 4-axis radar (Plan axis removed) | `Progress.tsx` |
-| Filter pill flex-shrink fix | `Progress.tsx` |
-| Local calendar-day meal filter (not UTC) | `varfoot.ts`, `coachContext.ts`, `page.tsx` |
-| SSE streaming coach with live bubble + cursor | `gemini.ts`, `api/coach/route.ts`, `Coach.tsx`, `page.tsx` |
-| Conversation history in Gemini prompt (last 3 exchanges) | `api/coach/route.ts`, `page.tsx` |
-| SessionStorage draft-save for onboarding (refresh-safe) | `Onboarding.tsx` |
-| DoneSlide aha moment — score Ring + level + Strength/Focus | `Onboarding.tsx` |
-| Post-session modal (score + streak + plan updated) | `page.tsx` |
-| Auto-regenerate roadmap on session complete | `page.tsx` |
-| Auth → sign-up primary, demo secondary (then removed) | `Auth.tsx` |
-| PWA service worker + registration | `sw.js`, `ServiceWorkerRegistration.tsx`, `layout.tsx` |
-| Coach char counter (shows at 400+, red at 450+) | `Coach.tsx` |
-| Backlog for video script + Devpost story | `backlog.md` |
-
----
-
-## Key Design Decisions
-
-**Why piecewise-linear scoring?**  
-The four anchor points (0=floor, 40=freshman, 70=JV, 100=varsity) produce scores that feel honest — a JV-level result lands at exactly 70, not 73 or 68 based on arbitrary scaling. Every coach-facing number in the app traces back to the same `scoreMetric()` function.
-
-**Why gap-first roadmap generation?**  
-The most common failure mode in training apps is a generic schedule that doesn't prioritize the player's actual weaknesses. VarFoot ranks every drill by `100 - score` and greedily assigns highest-gap drills first, with load-balancing to avoid consecutive muscle-group overuse. The result is a plan that would actually accelerate someone's tryout prep.
-
-**Why Gemini streaming?**  
-A 1–2 second pause-then-appear feels broken on mobile. Streaming (SSE → client reads chunks → live bubble) makes the AI feel real and responsive, especially under presentation conditions when latency is visible to judges.
-
-**Why real sign-up for everyone?**  
-The "Build for Someone Real" theme is undermined if every judge just clicks "Try demo" and sees pre-loaded data. Judges who go through real onboarding understand the product. The aha moment on the DoneSlide (seeing their actual score ring) is the core emotional beat — removing the demo shortcut forces them to experience it.
-
----
-
-## Pre-Submission Checklist
-
-- [ ] Verify `USDA_API_KEY` is set in Vercel env (not falling back to DEMO_KEY)
-- [ ] Verify `GEMINI_API_KEY` is set in Vercel env
-- [ ] Verify Supabase email confirmation is disabled
-- [ ] Record 90-second demo video (script in `backlog.md`)
-- [ ] Write Devpost description (story draft in `backlog.md`)
-- [ ] Do a full end-to-end run: Auth → onboarding → readiness → coach question → log a meal → check Fuel tab
-- [ ] Test on mobile (iOS Safari + Android Chrome) — check safe area insets, PWA install prompt
+If time remains, the one feature that would most improve judging emotion is a more obvious "before to after" progress story in the demo state, but the existing sparkline and session-complete delta already carry enough of that signal.

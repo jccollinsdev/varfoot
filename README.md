@@ -51,6 +51,20 @@ npm run test
 npm run build
 ```
 
+## LexHack submission assets
+
+- `DEVPOST_SUBMISSION.md` — Devpost-ready story, tagline, stack, demo script, and hosted-video reminder
+- `SUBMISSION_REPORT.md` — clinical rubric audit and 90% readiness call
+- `demo/varfoot-demo-2min.mp4` — 2:08 narrated walkthrough for Devpost upload
+- `demo/varfoot-lexhack-pitch.pptx` — editable 9-slide live presentation deck
+
+Regenerate the local assets with:
+
+```bash
+python3 scripts/build_demo_video.py
+/Users/sansarkarki/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/build_pitch_deck.mjs
+```
+
 ## Docs
 
 - `docs/scoring-model.md` — how the 0–100 readiness score is computed

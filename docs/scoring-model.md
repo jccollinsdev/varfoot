@@ -1,6 +1,6 @@
 # VarFoot Scoring Model
 
-Date: 2026-06-07
+Date: 2026-06-11
 
 ## What the score means
 
@@ -100,6 +100,15 @@ Maximum plan-readiness score is `100`.
 - Recovery / nutrition check-ins are treated as real scored habits, not decorative logs.
 - Calories, water, and sleep count toward readiness because the product spec treats fueling/recovery as part of varsity preparedness.
 - Height and weight are intentionally excluded from readiness penalties. They inform context only.
+- Macro targets are planning estimates, not medical prescriptions. The app does not collect biological sex, so calorie estimates use a sex-neutral midpoint of the Mifflin-St Jeor constants.
+- Protein targets use roughly `1.5 g/kg/day`, rounded to the nearest 5g, instead of a fixed percentage of calories. This follows youth-athlete nutrition guidance that commonly centers near 1.5 g/kg/day and avoids pushing teen players toward excessive protein.
+- Carbohydrates absorb the remaining energy after protein and fat because soccer training depends heavily on available carbohydrate.
+- The AI coach prompt explicitly avoids telling minors to hit exact calorie/protein numbers as commands. It frames nutrition around balanced meals, snacks, hydration, and checking with a parent, coach, registered dietitian, or clinician when needed.
+
+Reference points used for the safety adjustment:
+
+- American Academy of Pediatrics / HealthyChildren.org: [Protein for the Teen Athlete](https://www.healthychildren.org/English/ages-stages/teen/nutrition/Pages/Protein-for-the-Teen-Athlete.aspx)
+- Journal of the Pediatric Orthopaedic Society of North America: [Nutritional Recommendations for the Young Athlete](https://jposna.org/index.php/jposna/article/view/599/702)
 
 ## Gap analysis
 

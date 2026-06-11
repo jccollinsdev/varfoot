@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateRoadmap } from "../roadmap";
-import type { AssessmentState } from "../varfoot";
+import type { AssessmentState, RoadmapState } from "../varfoot";
 
 const baseAssessment: AssessmentState = {
   name: "Test Player",
@@ -42,6 +42,37 @@ describe("generateRoadmap", () => {
     const second = generateRoadmap({ assessment: baseAssessment, drillResults: {}, existing });
     expect(second.nodes[0].id).toBe(completedNode.id);
     expect(second.nodes[0].status).toBe("completed");
+  });
+
+  it("continues after the latest completed future session when regenerating", () => {
+    const existing: RoadmapState = {
+      generatedAt: "2026-06-10T12:00:00.000Z",
+      goalDate: "2026-07-16",
+      nodes: [
+        {
+          id: "completed-future-node",
+          index: 0,
+          label: "Passing",
+          date: "2026-06-15",
+          focusCategory: "Passing",
+          drillIds: ["long-ping-30"],
+          estimatedMinutes: 16,
+          status: "completed",
+        },
+      ],
+    };
+
+    const result = generateRoadmap({
+      assessment: { ...baseAssessment, tryoutDate: "2026-07-16" },
+      drillResults: {},
+      existing,
+      today: new Date("2026-06-11T12:00:00.000Z"),
+    });
+    const current = result.nodes.find((node) => node.status === "current");
+
+    expect(result.nodes[0]).toEqual(existing.nodes[0]);
+    expect(current).toBeDefined();
+    expect(current!.date !== null && current!.date > "2026-06-15").toBe(true);
   });
 
   it("no two consecutive sessions share every muscle group", () => {

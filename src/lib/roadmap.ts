@@ -146,9 +146,16 @@ export function generateRoadmap(params: {
   const carriedOver = (existing?.nodes ?? []).filter((n) => n.status === "completed");
   const carriedIds = new Set(carriedOver.map((n) => n.id));
   const startIndex = carriedOver.length;
+  const latestCompletedDate = carriedOver
+    .map((n) => n.date)
+    .filter((date): date is string => Boolean(date))
+    .sort()
+    .at(-1);
 
   const nodes: RoadmapNode[] = [...carriedOver];
-  let cursor = todayIso;
+  // When regenerating after a future-dated session is completed, continue after that
+  // completed session instead of jumping backward to "today".
+  let cursor = latestCompletedDate && latestCompletedDate > todayIso ? latestCompletedDate : todayIso;
   let recentMuscleGroups = new Set<string>();
   let lastTechnicalCategory: DrillCategory | null = null;
   let dayCount = 0;

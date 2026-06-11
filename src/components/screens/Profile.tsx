@@ -38,6 +38,9 @@ export function Profile({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Profile and account actions"
       style={{ position: "absolute", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.6)" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -51,7 +54,7 @@ export function Profile({
               {initials}
             </div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 19, fontWeight: 900, letterSpacing: "-.04em" }}>{state.assessment.name || "Athlete"}</p>
+              <p style={{ fontSize: 19, fontWeight: 900, letterSpacing: 0 }}>{state.assessment.name || "Athlete"}</p>
               <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {state.assessment.position || "—"}
               </p>

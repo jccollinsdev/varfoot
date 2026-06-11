@@ -206,7 +206,7 @@ export function Progress({
           </FlatCard>
         )}
 
-        <div className="vf-seg" style={{ marginBottom: 16, overflowX: "auto", flexShrink: 0, maxWidth: "100%", touchAction: "pan-x" }}>
+        <div className="vf-seg vf-scroll-x" style={{ marginBottom: 16, flexShrink: 0, maxWidth: "100%", touchAction: "pan-x" }}>
           {FILTERS.map((f) => (
             <button key={f.key} type="button" className={cn("vf-seg-btn", filter === f.key && "on")} onClick={() => setFilter(f.key)} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
               {f.label}
@@ -226,5 +226,4 @@ export function Progress({
     </>
   );
 }
-
 

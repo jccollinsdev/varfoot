@@ -66,7 +66,7 @@ export function Today({
       <div className="content-area content-scroll" style={{ padding: "16px 16px 24px" }}>
         <div className="flex items-center gap-2 mb-4">
           <HandWaving size={18} weight="fill" color="var(--yellow)" />
-          <h1 style={{ fontSize: 19, fontWeight: 900, letterSpacing: "-.02em" }}>{greetingFor(assessment.name)}</h1>
+          <h1 style={{ fontSize: 19, fontWeight: 900, letterSpacing: 0 }}>{greetingFor(assessment.name)}</h1>
         </div>
 
         {node ? (
