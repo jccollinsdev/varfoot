@@ -1,9 +1,9 @@
-# VarFooty — Final Pre-Submission Audit
+# VarFoot — Final Pre-Submission Audit
 
 **Audited:** 2026-06-09
 **Hackathon:** LexHack '26 — "Build for Someone Real"
 **Repo:** `github.com/jccollinsdev/varfoot`
-**Live (app):** `varfoot.vercel.app` · **Live (landing):** `varfooty.vercel.app`
+**Live (app):** `varfoot.vercel.app`
 **Stack:** Next.js 16.2.7 (App Router, Turbopack) · React 19 · TypeScript (strict) · Supabase (auth + Postgres + RLS) · Gemini 3.1 Flash Lite · USDA FoodData Central · Vercel
 
 This is a full read-through of every source file, the data model, the AI integration, the tests, and the deployment setup, scored against the four published judging criteria. The short version: this is a strong submission that will demo well. The risk is not the code. The risk is three stale documents pointing judges at the wrong URL, a missing demo video, and a "who we built it for" story that still lives in a backlog draft instead of the submission.
@@ -62,11 +62,11 @@ These are not participation-trophy strengths. They are the things that separate 
 **P0-1. Fix the stale live URLs in the docs. (Presentation, judge experience)**
 This is the most dangerous issue in the repo and it is not code, it is documentation that will misdirect a judge.
 
-- `README.md` line 5 says: *"Live demo: varfooty.vercel.app — click Explore as Jordan Reyes on the auth screen."* After the domain split, `varfooty.vercel.app` is now the marketing carousel page. There is no auth screen there and no "Explore as Jordan Reyes" button. A judge who follows the README lands on a brochure and never reaches the app. The app is at `varfoot.vercel.app`.
+- `README.md` should point judges straight at the app at `varfoot.vercel.app`, where the auth screen has the "Explore as Jordan Reyes" button. (Resolved: the separate marketing page was removed, so there is now a single URL and no brochure to get stuck on.)
 - Same file says "the real 14-drill assessment." The onboarding measures 19 drills (13 PDF technical + 6 physical/nutrition). Use one number consistently.
-- `SUBMISSION_REPORT.md` has the same stale `varfooty.vercel.app` live URL, an architecture note that says "22 steps" (it is 19 measured drills), and a changelog claiming demo was removed from Auth. Demo is currently wired into Auth (`onLoadDemo={loadDemo}` in `page.tsx`), which is good, but the doc contradicts the code.
+- `SUBMISSION_REPORT.md` has an architecture note that says "22 steps" (it is 19 measured drills), and a changelog claiming demo was removed from Auth. Demo is currently wired into Auth (`onLoadDemo={loadDemo}` in `page.tsx`), which is good, but the doc contradicts the code.
 
-Decide the story and make all three surfaces agree: the app is `varfoot.vercel.app`, the landing page is `varfooty.vercel.app`, onboarding is 19 drills, demo is available both on the auth screen and in the profile sheet.
+Decide the story and make all surfaces agree: the app is `varfoot.vercel.app`, onboarding is 19 drills, demo is available both on the auth screen and in the profile sheet.
 
 **P0-2. Record the 2–3 minute demo video. (Mandatory submission requirement + Presentation 10%)**
 This is not optional. Devpost requires a 2–3 minute walkthrough on YouTube or Vimeo with embedding enabled. Without it the submission is incomplete. A recording also protects you from a live demo failing on Gemini latency or a Supabase cold start during the 5-minute Demo Day slot. The script in `backlog.md` is a good base, but update step 1: the entry point is `varfoot.vercel.app`, and you can either sign up live or click "Explore as Jordan Reyes."
@@ -99,7 +99,7 @@ The manifest and the apple-touch-icon both point only at `varfoot-mark.svg`. iOS
 
 ### 1. Impact / Usefulness — 40% — estimate 32–35 / 40
 
-**Why it scores well.** The problem is real and specific: JV, freshman, and club players have team practice and PDF drill sheets but no individual plan, no benchmark to measure against, and no feedback loop. VarFooty closes exactly that loop with a baseline assessment, a gap-ranked score, a roadmap that re-prioritizes after every session, and a coach that answers from the player's own numbers. The nutrition layer is personalized per athlete rather than a flat 3,500 kcal for everyone.
+**Why it scores well.** The problem is real and specific: JV, freshman, and club players have team practice and PDF drill sheets but no individual plan, no benchmark to measure against, and no feedback loop. VarFoot closes exactly that loop with a baseline assessment, a gap-ranked score, a roadmap that re-prioritizes after every session, and a coach that answers from the player's own numbers. The nutrition layer is personalized per athlete rather than a flat 3,500 kcal for everyone.
 
 **What is capping the score.**
 - The "who" is not yet front and center. Impact rewards demonstrated understanding of a real person. The fix is P0-3, not more code.
@@ -146,7 +146,7 @@ This is the criterion where you are strongest relative to the field. Make sure t
 - `src/lib/coachContext.ts` — builds the grounded prompt from real state. This is why the coach feels specific.
 - `src/app/api/*` — three thin, validated routes. Keys never reach the client.
 - `src/app/page.tsx` (812 lines) — the app shell. Large but coherent: auth lifecycle, debounced autosave, session-completion detection, navigation stack. The session-complete path correctly recomputes readiness, captures a snapshot, and regenerates the locked portion of the roadmap.
-- `src/middleware.ts` — host-based rewrite, `varfooty` → `/landing`, with a `?_landing=1` dev escape hatch. Clean.
+- `src/middleware.ts` — removed along with the marketing landing page; the app now serves a single surface at `varfoot.vercel.app` with no host-based rewrite.
 
 **Things I checked that are correct and worth knowing they are correct:**
 - Demo drill results are tagged `source: "assessment"`, so opening a roadmap session in demo mode still asks the judge to log a fresh rep instead of showing the session pre-completed. Intentional and right.
@@ -175,7 +175,7 @@ Submission (Devpost):
 - [ ] Project name + one-sentence tagline
 - [ ] Tech stack list
 - [ ] Public GitHub link
-- [ ] Live link → `varfoot.vercel.app` (the app), and you can list `varfooty.vercel.app` as the landing page
+- [ ] Live link → `varfoot.vercel.app` (the app)
 - [ ] All team members listed
 - [ ] Prepare the 5-minute live demo + 2-minute Q&A for Demo Day
 
@@ -183,4 +183,4 @@ Submission (Devpost):
 
 ## One-paragraph summary for your own reference
 
-VarFooty is a technically strong, well-tested, real-data PWA that already clears the bar for a high-quality hackathon submission. The engine work (a tested piecewise scoring model and a real gap-first roadmap scheduler) is your differentiator and you should say so out loud, because judges will not infer it from the UI. The points you are leaving on the table are not in the code. They are a missing demo video, a personal story still sitting in a backlog file, three docs that point judges at the wrong URL, and a progress chart that new users cannot see yet. Fix those five things and you move from a solid 80 to a competitive 85-plus.
+VarFoot is a technically strong, well-tested, real-data PWA that already clears the bar for a high-quality hackathon submission. The engine work (a tested piecewise scoring model and a real gap-first roadmap scheduler) is your differentiator and you should say so out loud, because judges will not infer it from the UI. The points you are leaving on the table are not in the code. They are a missing demo video, a personal story still sitting in a backlog file, three docs that point judges at the wrong URL, and a progress chart that new users cannot see yet. Fix those five things and you move from a solid 80 to a competitive 85-plus.

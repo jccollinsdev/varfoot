@@ -22,13 +22,13 @@ const barlowCondensed = Barlow_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "VarFooty",
+  title: "VarFoot",
   description: "Train with purpose. Make varsity.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "VarFooty",
+    title: "VarFoot",
   },
   icons: {
     icon: [

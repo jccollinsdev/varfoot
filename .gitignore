@@ -42,3 +42,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# demo-reel build scratch (regenerate with: bash .reel/build.sh)
+.reel/

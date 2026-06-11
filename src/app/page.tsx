@@ -618,7 +618,7 @@ function App() {
   // ─── Gates ──────────────────────────────────────────────────────────────────
 
   function renderPhoneContent() {
-    if (!hydrated) return <LoadingScreen message="Loading VarFooty…" />;
+    if (!hydrated) return <LoadingScreen message="Loading VarFoot…" />;
     if (!localMode && !demoMode && !guestMode && (authLoading || bootstrapLoading)) return <LoadingScreen message="Loading your profile…" />;
     if (!localMode && !demoMode && !guestMode && !session) {
       return <Auth loading={authLoading} error={authError} note={authNote} onSubmit={handleAuthSubmit} onLoadDemo={loadDemo} />;

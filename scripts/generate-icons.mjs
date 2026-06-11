@@ -45,7 +45,7 @@ async function makeMaskable(size, out) {
   console.log(`  ${out}  (${size}x${size}, maskable safe zone)`);
 }
 
-console.log("Generating VarFooty icons:");
+console.log("Generating VarFoot icons:");
 await makeFlat(180, "apple-touch-icon.png");
 await makeFlat(192, "icon-192.png");
 await makeFlat(512, "icon-512.png");

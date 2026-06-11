@@ -3,7 +3,6 @@
 **Hackathon:** LexHack '26  
 **Theme:** Build for Someone Real  
 **Live app:** [varfoot.vercel.app](https://varfoot.vercel.app) (the running app)  
-**Landing page:** [varfooty.vercel.app](https://varfooty.vercel.app) (marketing; links to the app)  
 **Stack:** Next.js 16.2.7 · React 19 · TypeScript · Supabase · Gemini 3.1 Flash Lite · USDA FoodData Central · Vercel
 
 ---
@@ -122,7 +121,7 @@ App shell (AppState, autosave 600ms debounce)
 | Real sign-up flow | Auth defaults to sign-up. No email confirmation required. Judges go through real onboarding. |
 | Aha moment in onboarding | Score reveal on the DoneSlide — judges feel the payoff immediately after their 19 drills. |
 | Demo persona | "Explore as Jordan Reyes" on the auth screen, and "Load demo athlete" in the profile sheet — both give judges a fully-populated state without onboarding. |
-| Live at varfoot.vercel.app | Deployed, USDA API key configured, Gemini API key configured, Supabase no-email-confirm enabled. Marketing landing at varfooty.vercel.app links here. |
+| Live at varfoot.vercel.app | Deployed, USDA API key configured, Gemini API key configured, Supabase no-email-confirm enabled. |
 | Backlog documented | `backlog.md` includes a 90-second demo video script and a Devpost personal story draft. |
 
 #### What's still needed (pre-submission)
@@ -163,12 +162,12 @@ App shell (AppState, autosave 600ms debounce)
 | `3fce154` | Switch to Gemini 3.1 Flash Lite; demo data coherence (71/70/55 tiles, Speed as biggest gap, Day 1 completed, local-time meal timestamps) |
 | `eb0b1e6` | **Major rubric fixes** (16 files, 461 insertions) — see table below |
 | `92d2b80` | Vitest suite, Progress sparkline, demo path, README corrections |
-| `6bd83a1`+ | Rename to VarFooty, new V-cleat logo, editorial desktop landing page |
+| `6bd83a1`+ | Rename to VarFoot, new V-cleat logo, editorial desktop landing page |
 
 ### Session 3 — Domain split + final audit
 | Commit | What |
 |---|---|
-| `ad6f57d` | Hard domain split: `varfooty.vercel.app` = marketing carousel landing (`/landing` via middleware), `varfoot.vercel.app` = the app. Demo persona kept on both the auth screen and the profile sheet. |
+| `ad6f57d` | Domain handling: the app is served at `varfoot.vercel.app`. (An earlier marketing-landing split was introduced here and later removed — there is now a single app, no separate marketing page.) Demo persona kept on both the auth screen and the profile sheet. |
 
 #### `eb0b1e6` detail
 

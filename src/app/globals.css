@@ -520,12 +520,13 @@ body {
 .paper-chip-active { background: var(--green-ghost); border-color: var(--green-line); color: var(--green); }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   LANDING PAGE — Athletic Editorial Design
-   Desktop (≥900px): full-viewport two-column hero + below-fold sections
-   Mobile (<900px):  landing panel hidden — only the app is shown
+   LEGACY LANDING STYLES — the standalone marketing page was removed.
+   Retained only because app screens reuse some class names defined below
+   (.vf-btn-ghost, .vf-footer). Prune with a visual check; left in place to
+   preserve the app's current appearance.
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Landing page root (varfooty.vercel.app) ────────────────────────────── */
+/* ── Landing page root ──────────────────────────────────────────────────── */
 
 /* Mobile-first: always visible when rendered at /landing */
 .vf-landing-panel {

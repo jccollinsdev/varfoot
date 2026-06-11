@@ -344,7 +344,7 @@ export function DrillCapture({
 export function LoadingScreen({ message }: { message: string }) {
   return (
     <div style={{ background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100dvh", gap: 16 }}>
-      <Image src="/varfoot-mark.svg" alt="VarFooty" width={48} height={48} />
+      <Image src="/varfoot-mark.svg" alt="VarFoot" width={48} height={48} />
       <div style={{ display: "flex", gap: 6 }}>
         {[0, 1, 2].map(i => <div key={i} className="bounce-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)" }} />)}
       </div>

@@ -32,8 +32,8 @@ export function Auth({
 
   return (
     <div style={{ background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100dvh", padding: "0 24px" }}>
-      <Image src="/varfoot-mark.svg" alt="VarFooty" width={52} height={52} style={{ marginBottom: 8 }} />
-      <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>VarFooty</h1>
+      <Image src="/varfoot-mark.svg" alt="VarFoot" width={52} height={52} style={{ marginBottom: 8 }} />
+      <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.04em", marginBottom: 4 }}>VarFoot</h1>
       <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 24, fontWeight: 600 }}>Train with purpose. Make varsity.</p>
 
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>

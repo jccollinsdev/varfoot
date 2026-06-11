@@ -5,7 +5,7 @@ Date: 2026-06-07
 ## Status
 
 - Local app: verified on `http://localhost:3001`
-- Production site: `https://varfooty.vercel.app` returned `200`
+- Production site: `https://varfoot.vercel.app` returned `200`
 - Final checks passed:
   - `npm run typecheck`
   - `npm run lint`
