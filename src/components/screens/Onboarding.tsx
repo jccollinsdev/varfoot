@@ -284,7 +284,7 @@ function IdentitySlide({ assessment, onChange }: { assessment: AssessmentState; 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <FieldLabel>Full name</FieldLabel>
-          <input className="vf-input" placeholder="e.g. Jordan Reyes" value={assessment.name} onChange={(e) => onChange({ name: e.target.value })} />
+          <input className="vf-input" placeholder="e.g. Sansar Karki" value={assessment.name} onChange={(e) => onChange({ name: e.target.value })} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
           <div style={{ flex: 1 }}>

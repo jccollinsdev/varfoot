@@ -70,12 +70,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
   ]);
 }
 
-// ─── Demo persona ─────────────────────────────────────────────────────────────
-// "Load demo athlete" is an explicit, on-demand product feature (a fictional persona for
-// exploring the app without onboarding) — distinct from the silently-seeded fake nutrition
-// data that was removed elsewhere. Drill values are anchored to each drill's real JV target
-// so the readiness/roadmap/progress pipeline produces a coherent "JV player chasing varsity"
-// picture; nutrition starts empty like every other account.
+// ─── Demo athlete ─────────────────────────────────────────────────────────────
+// "Explore demo athlete" loads VarFoot pre-filled with the profile of the player the
+// app was actually built for: Sansar Karki, an incoming freshman documenting his push
+// to make varsity (@sansar.mp4). It's an explicit, on-demand product feature for judges
+// and first-time visitors to see a populated app without onboarding — distinct from the
+// silently-seeded fake nutrition data that was removed elsewhere. Drill values are
+// anchored to each drill's real JV target so the readiness/roadmap/progress pipeline
+// produces a coherent "freshman already testing near JV, chasing varsity" picture;
+// nutrition starts empty like every other account.
 
 function isoDateDaysFromNow(days: number) {
   const d = new Date();
@@ -85,14 +88,14 @@ function isoDateDaysFromNow(days: number) {
 
 function createDemoState(): AppState {
   const assessment: AssessmentState = {
-    name: "Jordan Reyes",
-    age: "16",
-    school: "Lincoln High",
+    name: "Sansar Karki",
+    age: "14",
+    school: "",
     position: "Midfielder",
     heightInches: 68,
     weightLbs: 145,
     availableDays: [1, 2, 4, 6],
-    currentLevel: "jv",
+    currentLevel: "incoming-freshman",
     targetLevel: "varsity",
     tryoutDate: isoDateDaysFromNow(35),
     trainingDaysPerWeek: 4,
@@ -100,13 +103,14 @@ function createDemoState(): AppState {
   };
   const recordedAt = new Date().toISOString();
 
-  // Realistic JV-with-gaps profile: passing/first-touch are Jordan's strengths as a
-  // midfielder; speed/conditioning and nutrition are the primary gaps to close.
-  // Each override is set to produce a meaningfully different category score so the
-  // Today mini-tiles, radar, and coach note all tell the same coherent story.
+  // Realistic incoming-freshman-with-gaps profile: passing/first-touch are Sansar's
+  // strengths as a midfielder; speed/conditioning and nutrition are the primary gaps to
+  // close before varsity tryouts. Each override is set to produce a meaningfully different
+  // category score so the Today mini-tiles, radar, and coach note all tell the same
+  // coherent story — a freshman already testing near JV, with a clear path to varsity.
   const demoOverrides: Record<string, number> = {
     "wall-cushion-rebound": 15,  // ~78/100 — solid first touch (freshman=9, jv=14, varsity=18)
-    "gate-pass-15": 14,          // ~78/100 — passing is Jordan's strength (freshman=8, jv=13, varsity=17)
+    "gate-pass-15": 14,          // ~78/100 — passing is Sansar's strength (freshman=8, jv=13, varsity=17)
     "recovery-sprint-25": 5.9,   // ~55/100 — key athletic gap; lower_is_better (jv=5.4s, freshman=6.4s)
     "daily-calories": 2600,      // ~57/100 — under-fueling (freshman=2200, jv=2900, varsity=3500)
     "daily-water": 85,           // ~60/100 — under-hydrated (freshman=64oz, jv=96oz)
@@ -154,7 +158,7 @@ function createDemoState(): AppState {
     },
   ];
 
-  // Realistic improvement arc for Jordan Reyes over the past 3 weeks: 62 → 70.
+  // Realistic improvement arc for Sansar over the past 3 weeks: 62 → 70.
   // Gives the sparkline on the Progress screen a meaningful story on first load.
   const dateAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
   const demoHistory: ProgressSnapshot[] = [

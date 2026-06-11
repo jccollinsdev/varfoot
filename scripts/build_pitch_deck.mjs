@@ -84,6 +84,24 @@ async function loadScreenshotDataUrls() {
   }
 }
 
+const PORTRAITS = new Map();
+async function loadPortraitDataUrls() {
+  for (const file of ["sansar.png", "saaransh.png"]) {
+    const buf = await readFile(join(ROOT, "demo", "creators", file));
+    PORTRAITS.set(file, `data:image/png;base64,${buf.toString("base64")}`);
+  }
+}
+
+function portrait(file, size = 300) {
+  return image({
+    dataUrl: PORTRAITS.get(file),
+    width: size,
+    height: size,
+    fit: "cover",
+    alt: file.replace(".png", ""),
+  });
+}
+
 function phone(file, width = 340, height = 720) {
   return image({
     dataUrl: SCREENSHOTS.get(file),
@@ -104,161 +122,253 @@ function slide(presentation, elements, notes) {
 
 const p = Presentation.create();
 await loadScreenshotDataUrls();
+await loadPortraitDataUrls();
 
+// 1 — Title
 slide(p, [
   row({ width: 1470, height: 760, gap: 70, align: "center" }, [
-    column({ width: 860, gap: 24 }, [
-      kicker("LexHack '26 / Build for someone real", C.blue),
-      h1("VarFoot gives the player training alone a varsity plan.", 850),
-      body("Built for Jordan Reyes, a 16-year-old JV midfielder who already trains after school but does not know whether the work is actually moving him toward varsity.", 820, 140),
+    column({ width: 880, gap: 18 }, [
+      kicker("LexHack '26 / Build something real for someone", C.blue),
+      h1("VarFoot", 850),
+      h2("A personalized AI soccer roadmap for athletes trying to make varsity.", 840),
+      body("Changing future athletes all around the world. Built by Sansar Karki & Saaransh Jinna — and built for a real one chasing varsity.", 820, 100),
       row({ width: 720, gap: 28 }, [
         metric("70", "readiness", C.green),
-        metric("38", "days left", C.blue),
+        metric("35", "days to tryouts", C.blue),
         metric("1", "next session", C.yellow),
       ]),
     ]),
-    column({ width: 430, gap: 16 }, [
+    column({ width: 410, gap: 16 }, [
       phone("01-today.png", 360, 740),
     ]),
   ]),
-], "Open with Jordan, not the tech stack.");
+], "Lead with the line: I built this for myself. A personalized AI soccer roadmap for athletes trying to make varsity.");
 
+// 2 — Built for a real person
+slide(p, [
+  row({ width: 1470, height: 760, gap: 72, align: "center" }, [
+    column({ width: 820, gap: 22 }, [
+      kicker("Built for a real person", C.green),
+      h1("This was built for me.", 800),
+      body("Sansar Karki — an incoming freshman trying to make varsity soccer. I have been documenting the journey publicly, so this is not a hypothetical user.", 790, 130),
+      bullets([
+        "Instagram: @sansar.mp4",
+        "1,100+ followers following the varsity push",
+        "Real training clips, a real public goal, a real deadline",
+      ], C.green, 780),
+    ]),
+    column({ width: 540, height: 700, gap: 16, align: "center" }, [
+      t("@sansar.mp4", 520, 70, f(46, C.text, true)),
+      t("1,100+ followers", 520, 50, f(26, C.muted, true)),
+      t("[ Insert a clean screenshot of the @sansar.mp4 profile here — handle + follower count ]", 520, 240, f(22, C.dim, false)),
+    ]),
+  ]),
+], "Proof this is real: public Instagram journey at @sansar.mp4, 1,100+ followers. Add the profile screenshot before presenting.");
+
+// 3 — The real problem
 slide(p, [
   row({ width: 1470, height: 760, gap: 72, align: "center" }, [
     column({ width: 770, gap: 22 }, [
-      kicker("Problem", C.yellow),
-      h2("Caring is not enough when training is guesswork.", 760),
-      body("High-school soccer players can find drills anywhere. What they cannot easily find is an honest baseline, a benchmark, and a prioritized next step.", 750, 130),
+      kicker("The real problem", C.yellow),
+      h2("Motivation was never the issue. A plan was.", 760),
+      body("I was training hard, posting the journey, and staying consistent. What I did not have was a system that told me what to work on and whether it was moving me toward varsity.", 750, 150),
       bullets([
-        "Team practice gives feedback, not a personal roadmap.",
-        "PDF drills give activities, not readiness.",
-        "Generic fitness apps miss tryouts, positions, and varsity standards.",
+        "Training hard, but guessing at priorities.",
+        "No baseline, no benchmark, no ranked next step.",
+        "No clear line from a weakness to a drill to tryout-readiness.",
       ], C.yellow, 750),
     ]),
-    column({ width: 560, gap: 16 }, [
-      body("The question Jordan is really asking:", 530, 50),
-      h2("Am I closer to varsity, and what should I work on first?", 540),
+    column({ width: 560, gap: 18 }, [
+      body("The question was never:", 530, 50),
+      h2("\"Will I put in the work?\"", 540),
+      body("It was:", 530, 40),
+      h2("\"What exactly should I work on today to become varsity-ready?\"", 540),
     ]),
   ]),
-]);
+], "Frame it as my own problem: effort was there, a system was not.");
 
+// 4 — Why existing solutions fail
+slide(p, [
+  column({ width: 1470, height: 760, gap: 28 }, [
+    kicker("Why existing solutions fail", C.red),
+    h2("Everything available solves a different problem.", 1180),
+    row({ width: 1440, gap: 40, align: "start" }, [
+      column({ width: 690, gap: 18 }, [
+        bullets([
+          "Generic YouTube drills are not personalized to my position or weaknesses.",
+          "Fitness apps track workouts but do not understand soccer tryouts.",
+        ], C.red, 690),
+      ]),
+      column({ width: 690, gap: 18 }, [
+        bullets([
+          "Coaches give team feedback and are not available every day.",
+          "Nutrition apps are not built around a teen athlete with soccer-specific goals.",
+        ], C.red, 690),
+      ]),
+    ]),
+    body("The result: a motivated player can spend months on the wrong work and never know it.", 1200, 80),
+  ]),
+], "Each existing option is generic where I needed specific.");
+
+// 5 — The VarFoot solution
 slide(p, [
   row({ width: 1470, height: 760, gap: 70, align: "center" }, [
-    column({ width: 740, gap: 22 }, [
-      kicker("Product loop", C.green),
-      h2("Baseline -> score -> gap -> session -> updated plan.", 720),
-      body("VarFoot turns tryout prep into a loop the player can repeat without waiting for a coach to personalize every session.", 700, 110),
+    column({ width: 760, gap: 22 }, [
+      kicker("The VarFoot solution", C.green),
+      h2("One loop: assess, diagnose, plan, train, fuel, coach.", 740),
+      body("VarFoot turns the goal into a repeatable system the player can run without waiting for a coach to personalize every session.", 720, 110),
       bullets([
-        "19-drill baseline across technical, physical, speed, recovery, and fueling.",
-        "Freshman/JV/varsity anchors make the score understandable.",
-        "Completed sessions regenerate future work from the latest state.",
-      ], C.green, 720),
+        "Assessment across technical, physical, speed, recovery, and fueling.",
+        "Weakness diagnosis: every drill ranked weakest-first.",
+        "Personalized roadmap built from real gaps and the tryout date.",
+        "Daily sessions, fuel support, and a grounded AI coach.",
+      ], C.green, 730),
     ]),
-    row({ width: 650, gap: 28, align: "center" }, [
+    row({ width: 640, gap: 28, align: "center" }, [
       phone("01-today.png", 280, 600),
       phone("02-roadmap.png", 280, 600),
     ]),
   ]),
-]);
+], "Assessment -> weakness diagnosis -> roadmap -> daily sessions -> fuel -> AI coach.");
 
+// 6 — Demo flow
 slide(p, [
-  row({ width: 1470, height: 760, gap: 70, align: "center" }, [
-    column({ width: 680, gap: 22 }, [
-      kicker("Proof object", C.blue),
-      h2("The roadmap is generated from Jordan's measured gaps.", 660),
-      body("The plan is not a canned Day 1 / Day 2 calendar. It ranks weaknesses, balances training load, and respects the tryout date.", 650, 120),
-      bullets([
-        "Speed/agility rises because it is Jordan's biggest blocker.",
-        "Focus labels say Passing, First Touch, Speed/Agility.",
-        "Regeneration now continues after future completed sessions.",
-      ], C.blue, 660),
-    ]),
-    phone("02-roadmap.png", 360, 740),
-  ]),
-]);
-
-slide(p, [
-  row({ width: 1470, height: 760, gap: 72, align: "center" }, [
-    column({ width: 690, gap: 22 }, [
-      kicker("Feedback", C.green),
-      h2("Progress shows evidence, not vibes.", 680),
-      body("Jordan can see history, a skill radar, weakest-first gaps, and which drills have already reached varsity level.", 660, 120),
-      bullets([
-        "Score trend for the improvement story.",
-        "Radar for skill balance.",
-        "Filters that keep the weakest-first list scannable.",
-      ], C.green, 660),
-    ]),
-    phone("03-progress.png", 360, 740),
-  ]),
-]);
-
-slide(p, [
-  row({ width: 1470, height: 760, gap: 72, align: "center" }, [
+  row({ width: 1470, height: 760, gap: 56, align: "center" }, [
     column({ width: 700, gap: 22 }, [
-      kicker("Safety", C.yellow),
-      h2("Fueling is useful, but careful because Jordan is a minor.", 690),
-      body("The Fuel tab uses USDA FoodData Central for real food data. Targets are planning estimates, not medical prescriptions.", 670, 130),
+      kicker("Demo flow", C.blue),
+      h2("Click Explore demo athlete — it loads my profile.", 690),
+      body("Judges see the app populated as Sansar, an incoming freshman chasing varsity, with no onboarding required.", 670, 110),
       bullets([
-        "Protein uses about 1.5 g/kg/day instead of a high calorie percentage.",
-        "Calories use a sex-neutral estimate because the app does not collect sex.",
-        "Coach language points to balanced meals, hydration, and adult support.",
-      ], C.yellow, 680),
-    ]),
-    phone("04-nutrition.png", 360, 740),
-  ]),
-]);
-
-slide(p, [
-  row({ width: 1470, height: 760, gap: 72, align: "center" }, [
-    column({ width: 700, gap: 22 }, [
-      kicker("AI coach", C.blue),
-      h2("The coach is grounded in Jordan's actual state.", 690),
-      body("Gemini receives readiness, top gaps, today's roadmap session, recent history, and today's meals. It is not a generic soccer chatbot.", 670, 130),
-      bullets([
-        "Streaming response feels live in the demo.",
-        "Context includes score, gaps, plan, and food log.",
-        "Prompt includes teen nutrition safety constraints.",
+        "Onboarding / assessment baseline.",
+        "Personalized plan and a training session.",
+        "Drill guidance with diagrams.",
+        "Fuel tab and the AI coach.",
       ], C.blue, 680),
     ]),
-    phone("05-coach.png", 360, 740),
-  ]),
-]);
-
-slide(p, [
-  column({ width: 1470, height: 760, gap: 34 }, [
-    kicker("Clinical grade", C.green),
-    h1("88-91 / 100 if the final deployment and hosted video land.", 1180),
-    row({ width: 1430, gap: 24 }, [
-      metric("36-38", "impact / 40", C.green),
-      metric("26-28", "tech / 30", C.blue),
-      metric("17-18", "design / 20", C.yellow),
-      metric("9", "presentation / 10", C.green),
+    row({ width: 700, gap: 20, align: "center" }, [
+      phone("03-progress.png", 208, 446),
+      phone("04-nutrition.png", 208, 446),
+      phone("05-coach.png", 208, 446),
     ]),
-    body("The project is prize-contending because it has one clear person, a real problem, a working end-to-end app, and a demo path judges can understand quickly.", 1210, 100),
-    bullets([
-      "Lead with Jordan's uncertainty, then show how each screen removes it.",
-      "Use the demo athlete live; mention the full assessment, do not perform all 19 drills.",
-      "Upload the generated 2:08 walkthrough to YouTube or Vimeo before Devpost submission.",
-    ], C.green, 1200),
   ]),
-]);
+], "Live order: assessment, plan, session, drill, fuel, coach. Use the demo athlete; mention the full assessment exists.");
 
+// 7 — Technical execution
+slide(p, [
+  column({ width: 1470, height: 760, gap: 20 }, [
+    kicker("Technical execution", C.blue),
+    h2("A real working app, not a mockup.", 1180),
+    row({ width: 1430, gap: 24 }, [
+      metric("50", "drill catalog", C.green),
+      metric("0-100", "readiness model", C.blue),
+      metric("USDA", "live food data", C.yellow),
+      metric("35/35", "tests passing", C.green),
+    ]),
+    row({ width: 1440, gap: 40, align: "start" }, [
+      bullets([
+        "Next.js 16 + React 19 + TypeScript, installable as a PWA.",
+        "Supabase auth + PostgreSQL with row-level security for sync.",
+        "Deterministic, unit-tested scoring and roadmap engine.",
+      ], C.blue, 690),
+      bullets([
+        "Gemini 3.1 Flash Lite streaming AI coach + roadmap summaries.",
+        "USDA FoodData Central API for real macro math.",
+        "Teen-safe nutrition guardrails; deployed on Vercel.",
+      ], C.blue, 690),
+    ]),
+  ]),
+], "Stack: Next.js/PWA, Supabase, Gemini, USDA, deterministic engine, 50-drill catalog, safe AI guardrails, Vercel.");
+
+// 8 — Impact
 slide(p, [
   row({ width: 1470, height: 760, gap: 70, align: "center" }, [
     column({ width: 820, gap: 24 }, [
-      kicker("Demo close", C.blue),
-      h1("VarFoot is not motivation. It is the next right step.", 820),
-      body("For Jordan, the app answers the question that matters: what should I do today to become varsity-ready?", 780, 120),
+      kicker("Impact", C.green),
+      h1("It turns a vague dream into a daily plan.", 810),
+      body("VarFoot helps an athlete like me know what to do, why it matters, and how today's session connects to the tryout goal.", 790, 130),
+      bullets([
+        "Every session traces back to a measured weakness.",
+        "Progress is checked against varsity, not vibes.",
+        "The same problem belongs to thousands of players with no plan.",
+      ], C.green, 780),
+    ]),
+    phone("03-progress.png", 360, 740),
+  ]),
+], "Impact: the goal finally becomes actionable, and it generalizes beyond me.");
+
+// 9 — What changed because of VarFoot
+slide(p, [
+  column({ width: 1470, height: 760, gap: 30 }, [
+    kicker("What changed because of VarFoot", C.blue),
+    h2("Before and after.", 1180),
+    row({ width: 1440, gap: 48, align: "start" }, [
+      column({ width: 690, gap: 16 }, [
+        t("BEFORE", 690, 40, f(22, C.red, true)),
+        bullets([
+          "Random training, unclear priorities.",
+          "No way to know if the work matched the varsity goal.",
+          "Effort without a system.",
+        ], C.red, 690),
+      ]),
+      column({ width: 690, gap: 16 }, [
+        t("AFTER", 690, 40, f(22, C.green, true)),
+        bullets([
+          "Personalized daily sessions from ranked weaknesses.",
+          "Progress tracked against the tryout date.",
+          "A coach-like assistant that always knows the next step.",
+        ], C.green, 690),
+      ]),
+    ]),
+  ]),
+], "Contrast the before/after so judges feel the change.");
+
+// 10 — About the creators
+function creatorCard(file, name, lines, accent) {
+  return column({ width: 700, gap: 16, align: "start" }, [
+    row({ width: 700, gap: 22, align: "center" }, [
+      portrait(file, 150),
+      column({ width: 528, gap: 6 }, [
+        t(name, 528, 46, f(30, C.text, true)),
+        t(lines.role, 528, 56, f(20, accent, true)),
+      ]),
+    ]),
+    t(lines.bio, 700, 200, f(21, C.muted, false)),
+  ]);
+}
+
+slide(p, [
+  column({ width: 1470, height: 760, gap: 30 }, [
+    kicker("About the creators", C.green),
+    h2("Two 8th graders from Andover, MA.", 1180),
+    row({ width: 1450, gap: 50, align: "start" }, [
+      creatorCard("sansar.png", "Sansar Karki", {
+        role: "Doherty Middle School · @sansar.mp4",
+        bio: "Trying to make varsity soccer as a freshman and documenting the journey to 1,100+ followers. Builds apps and is into AI and robotics. VarFoot is the system he wished he had — so he built it.",
+      }, C.green),
+      creatorCard("saaransh.png", "Saaransh Jinna", {
+        role: "Wood Hill Middle School",
+        bio: "Training to make the AHS tennis team; into robotics and math. Plays piano and any sport with friends. Brings the same athlete-chasing-a-spot perspective to how VarFoot is designed.",
+      }, C.blue),
+    ]),
+  ]),
+], "We are two 8th-grade athletes from Andover. Sansar is the soccer player VarFoot was built for; we built it together.");
+
+// 11 — Closing
+slide(p, [
+  row({ width: 1470, height: 760, gap: 70, align: "center" }, [
+    column({ width: 860, gap: 24 }, [
+      kicker("Closing", C.green),
+      h1("Built for someone real: me.", 840),
+      body("VarFoot was built for one athlete with a real, public goal. If it can help me chase varsity, it can help thousands of athletes with the same goal and no plan.", 820, 140),
       bullets([
         "Live app: varfoot.vercel.app",
-        "Demo button: Explore demo athlete",
-        "Submission video: demo/varfoot-demo-2min.mp4",
-      ], C.blue, 760),
+        "Demo button: Explore demo athlete (loads Sansar's profile)",
+        "Public journey: @sansar.mp4",
+      ], C.green, 800),
     ]),
     phone("01-today.png", 360, 740),
   ]),
-]);
+], "Close on the thesis: a real tool built by an athlete for himself, based on a real public varsity journey.");
 
 await mkdir(join(ROOT, "demo"), { recursive: true });
 await mkdir(PREVIEW_DIR, { recursive: true });

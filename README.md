@@ -1,8 +1,10 @@
 # VarFoot
 
-VarFoot is a soccer-specific PWA for JV, freshman, and club players who want a clearer roadmap to varsity. Built for LexHack '26 (theme: "Build for Someone Real").
+A personalized AI soccer roadmap for athletes trying to make varsity. Built for LexHack '26 (theme: "Build something real for someone").
 
-**Live app:** [varfoot.vercel.app](https://varfoot.vercel.app) — click **Explore as Jordan Reyes** on the auth screen for the full experience without an account, or sign up and go through the real 19-drill assessment.
+VarFoot is built by **Sansar Karki & Saaransh Jinna**, two 8th-grade athletes from Andover, MA — and it's built for one of us. Sansar is an incoming freshman trying to make varsity soccer, documenting the journey publicly at [@sansar.mp4](https://www.instagram.com/sansar.mp4/). He had the motivation and the training clips but no real system: no clear way to identify weaknesses, turn them into daily sessions, connect them to drills, fuel correctly, or track progress toward tryouts. VarFoot is that system.
+
+**Live app:** [varfoot.vercel.app](https://varfoot.vercel.app) — click **Explore demo athlete** on the auth screen to open the app pre-loaded with my profile (incoming freshman chasing varsity), or sign up and go through the real assessment.
 
 ## What it does
 
@@ -53,17 +55,20 @@ npm run build
 
 ## LexHack submission assets
 
-- `DEVPOST_SUBMISSION.md` — Devpost-ready story, tagline, stack, demo script, and hosted-video reminder
+- `DEVPOST_SUBMISSION.md` — Devpost-ready story, tagline, stack, demo script (centered on Sansar Karki, the real user)
 - `SUBMISSION_REPORT.md` — clinical rubric audit and 90% readiness call
-- `demo/varfoot-demo-2min.mp4` — 2:08 narrated walkthrough for Devpost upload
-- `demo/varfoot-lexhack-pitch.pptx` — editable 9-slide live presentation deck
+- `demo/varfoot-lexhack-pitch.pptx` — editable 10-slide live presentation deck (Sansar story)
+- `demo/varfoot-demo-2min.mp4` — narrated walkthrough for Devpost upload
 
-Regenerate the local assets with:
+Regenerate the local assets (dev server must be running for screenshots):
 
 ```bash
-python3 scripts/build_demo_video.py
-/Users/sansarkarki/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/build_pitch_deck.mjs
+node scripts/capture_screenshots.mjs   # refresh public/screenshots from the demo athlete
+node scripts/build_pitch_deck.mjs      # rebuild demo/varfoot-lexhack-pitch.pptx
+python3 scripts/build_demo_video.py    # rebuild the demo video (optional)
 ```
+
+> Note: the pitch deck embeds `public/screenshots/*.png`, so recapture screenshots before rebuilding the deck whenever the app UI or demo profile changes.
 
 ## Docs
 

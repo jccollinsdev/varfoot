@@ -61,7 +61,7 @@ describe("weightedComposite", () => {
 
 describe("computeNutritionTargets", () => {
   const assessment: AssessmentState = {
-    name: "Jordan",
+    name: "Sansar",
     age: "16",
     school: "Test HS",
     position: "Midfielder",

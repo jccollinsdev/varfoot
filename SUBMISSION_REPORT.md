@@ -1,10 +1,11 @@
 # VarFoot - LexHack '26 Clinical Submission Audit
 
 **Hackathon:** LexHack '26  
-**Theme:** Build for someone real  
+**Theme:** Build something real for someone  
+**Built for:** Sansar Karki — incoming freshman trying to make varsity soccer ([@sansar.mp4](https://www.instagram.com/sansar.mp4/), 1,100+ followers)  
 **Deadline:** June 12, 2026 at 10:00 PM EDT  
 **Live app:** [varfoot.vercel.app](https://varfoot.vercel.app)  
-**Demo path:** click **Explore demo athlete** on the auth screen  
+**Demo path:** click **Explore demo athlete** on the auth screen (loads Sansar's profile)  
 **Stack:** Next.js 16, React 19, TypeScript, Supabase, Gemini 3.1 Flash Lite, USDA FoodData Central, Vercel
 
 ---
@@ -13,11 +14,11 @@
 
 **Current estimate: 88-91 / 100 if the final video is uploaded and the live deployment is current.**
 
-This is now in prize-contending shape for LexHack because it speaks directly to the rubric: a specific player, a concrete pain point, a working app, real data, and a demo path judges can understand in under five minutes. The remaining ceiling risk is not engineering polish; it is whether the presentation makes judges feel the human problem before they see the feature list.
+This is now in prize-contending shape for LexHack because it speaks directly to the rubric: it was built by the athlete it's for. Sansar Karki is a real, named, incoming freshman with a public varsity journey ([@sansar.mp4](https://www.instagram.com/sansar.mp4/)), a concrete pain point, a working app, real data, and a demo path judges can understand in under five minutes. The remaining ceiling risk is not engineering polish; it is whether the presentation makes judges feel the human problem before they see the feature list.
 
 | Criterion | Weight | Grade | Why |
 |---|---:|---:|---|
-| Impact / Usefulness | 40% | 36-38 / 40 | Strong real-person fit: a JV player trying to make varsity with no structured plan between practices. The app turns self-testing, planning, fueling, and coaching into one usable workflow. |
+| Impact / Usefulness | 40% | 36-38 / 40 | Strong real-person fit: the builder is the user — an incoming freshman trying to make varsity with no structured plan between practices. The app turns self-testing, planning, fueling, and coaching into one usable workflow. |
 | Technical Execution | 30% | 26-28 / 30 | Real auth/sync, strict TypeScript, tested scoring/roadmap logic, deterministic gap-first planning, USDA search, streaming Gemini coach, PWA shell, and regression tests for the date bug. |
 | Creativity + Design | 20% | 17-18 / 20 | The product framing is sharp: not a generic fitness tracker, but a varsity-readiness operating system. Mobile UI is polished, fast, and demoable. |
 | Presentation | 10% | 9 / 10 | Demo route, story doc, and generated slide/video assets are in place. Final score depends on uploading the 2-3 minute video and rehearsing the 5-minute live flow. |
@@ -28,9 +29,9 @@ This is now in prize-contending shape for LexHack because it speaks directly to 
 
 ### Human Problem Fit
 
-VarFoot is built for the player who cares enough to train alone but does not know what to do next. That is a real high-school athlete problem: coaches give team feedback, YouTube gives random drills, and players are left guessing which weakness is blocking them from varsity.
+VarFoot is built for the player who cares enough to train alone but does not know what to do next. That is a real high-school athlete problem, and it is the builder's own problem: coaches give team feedback, YouTube gives random drills, and players are left guessing which weakness is blocking them from varsity.
 
-Jordan Reyes, the demo persona, makes the story concrete: a 16-year-old JV midfielder with a passing-first profile, a speed/agility gap, and a varsity tryout deadline. The app does not say "work harder." It says what to test, what the numbers mean, what to train first, what session is next, and how fueling/recovery fit into the plan.
+Sansar Karki — the builder, and the athlete the demo profile represents — makes the story concrete: an incoming freshman with a passing-first midfielder profile, a speed/agility gap, and a varsity tryout deadline, documenting the journey publicly at [@sansar.mp4](https://www.instagram.com/sansar.mp4/). The app does not say "work harder." It says what to test, what the numbers mean, what to train first, what session is next, and how fueling/recovery fit into the plan.
 
 ### Product Substance
 
@@ -71,12 +72,12 @@ The app must never sound like a medical diet plan for a minor. Current mitigatio
 
 A five-minute demo can get swallowed by onboarding. Use the demo athlete for judging, then mention the full assessment exists. The live flow should be:
 
-1. Auth screen: "This is for Jordan, a JV midfielder trying to make varsity."
+1. Auth screen: "I built this for myself — Sansar, an incoming freshman trying to make varsity."
 2. Today: readiness score, biggest gap, next session.
 3. Plan: gap-first roadmap and tryout date.
 4. Train/Progress: radar and weakest-first gaps.
 5. Fuel: real USDA search and macro totals, with safety framing.
-6. Coach: ask "What should Jordan work on first?"
+6. Coach: ask "What should I work on first?"
 
 ---
 
@@ -84,7 +85,7 @@ A five-minute demo can get swallowed by onboarding. Use the demo athlete for jud
 
 | Area | Improvement |
 |---|---|
-| Impact | Added a stronger demo/persona path and Devpost-ready story centered on a JV player trying to make varsity. |
+| Impact | Re-centered the story and demo on the real builder/user, Sansar Karki — an incoming freshman with a public varsity journey ([@sansar.mp4](https://www.instagram.com/sansar.mp4/)) — and made the demo athlete load his profile. |
 | Technical | Fixed roadmap regeneration after completed future sessions; added regression coverage. |
 | Technical | Tightened nutrition target math and coach safety prompt for teen athletes. |
 | Design | Made the judge demo CTA full-width and visible on auth. |
@@ -101,6 +102,6 @@ VarFoot is effectively at **about 90% hackathon readiness** once the current bui
 - Verify the deployed site is the current VarFoot build, not stale VarFooty branding.
 - Upload the generated 2-3 minute walkthrough to YouTube or Vimeo with embedding enabled.
 - Practice the live demo until it consistently finishes in five minutes.
-- Avoid over-explaining the scoring math before judges understand Jordan's problem.
+- Avoid over-explaining the scoring math before judges understand Sansar's problem.
 
 If time remains, the one feature that would most improve judging emotion is a more obvious "before to after" progress story in the demo state, but the existing sparkline and session-complete delta already carry enough of that signal.
