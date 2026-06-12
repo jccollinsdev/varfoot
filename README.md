@@ -56,9 +56,10 @@ npm run build
 ## LexHack submission assets
 
 - `DEVPOST_SUBMISSION.md` — Devpost-ready story, tagline, stack, demo script (centered on Sansar Karki, the real user)
-- `SUBMISSION_REPORT.md` — clinical rubric audit and 90% readiness call
+- `FINAL_SUBMISSION_AUDIT.md` — end-to-end submission audit, asset inventory, and 5-minute demo script
 - `demo/varfoot-lexhack-pitch.pptx` — editable 10-slide live presentation deck (Sansar story)
 - `demo/varfoot-demo-2min.mp4` — narrated walkthrough for Devpost upload
+- `demo/varfoot-launch-40s.mp4` — 40s vertical (1080×1920) product reel for the gallery / social
 
 Regenerate the local assets (dev server must be running for screenshots):
 

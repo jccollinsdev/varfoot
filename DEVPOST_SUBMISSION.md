@@ -102,8 +102,10 @@ Two athletes who know the feeling of working hard with no clear path — so we b
 
 ## Demo Video
 
-Upload `demo/varfoot-demo-2min.mp4` to YouTube or Vimeo with embedding enabled, then paste the hosted URL into Devpost.
+Primary (Devpost demo): upload `demo/varfoot-demo-2min.mp4` (narrated ~2-minute walkthrough) to YouTube or Vimeo with embedding enabled, then paste the hosted URL into Devpost.
+
+Optional hero/social clip: `demo/varfoot-launch-40s.mp4` — a 40-second, 1080×1920 vertical product reel of the six core screens (Today, Readiness, Gap Analysis, Guided Training, AI Coach, Fuel). Good for the gallery or as a social teaser.
 
 ## Repository
 
-Paste the public GitHub repository URL here before final submission.
+[https://github.com/jccollinsdev/varfoot](https://github.com/jccollinsdev/varfoot) (public)
